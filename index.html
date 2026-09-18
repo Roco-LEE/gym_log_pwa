@@ -65,7 +65,8 @@
   .stepper .bt{display:flex; gap:8px;}
   .stepper .bt button{flex:1; font-size:30px; height:52px; padding:0; border-radius:12px; line-height:1;}
   .chips{display:flex; gap:5px;}
-  .chips button{flex:1; min-width:0; padding:0; height:30px; font-size:13px; border-radius:15px; font-variant-numeric:tabular-nums;}
+  .chips button{flex:1; min-width:0; padding:0; height:30px; font-size:12px; border-radius:15px; font-variant-numeric:tabular-nums;}
+  .stepper .val input{width:100%; font-size:36px; font-weight:800; text-align:center; padding:2px; border-radius:10px; border:2px solid var(--acc); background:var(--card2); color:var(--fg); font-variant-numeric:tabular-nums;}
   .chips button.on{background:var(--acc); border-color:var(--acc); color:#fff;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
   button.pick.on{background:var(--acc); border-color:var(--acc); color:#fff;}
@@ -389,12 +390,12 @@ function renderExercise() {
   <div class="foot">
     <div class="ctrl">
       <div class="stepper">
-        <div class="lbl">무게</div><div class="val">${fmt(r.kg)}<small>kg</small></div>
+        <div class="lbl">무게 <span style="font-weight:500">(눌러서 직접 입력)</span></div><div class="val" onclick="typeVal('kg')">${fmt(r.kg)}<small>kg</small></div>
         <div class="bt"><button onclick="adj('kg',-1)">−</button><button onclick="adj('kg',1)">＋</button></div>
-        <div class="chips">${[1.25, 2.5, 5, 10].map(s => `<button class="${s === step ? "on" : ""}" onclick="setStep(${s})">±${s}</button>`).join("")}</div>
+        <div class="chips">${[1, 1.25, 2.5, 5, 10].map(s => `<button class="${s === step ? "on" : ""}" onclick="setStep(${s})">${s}</button>`).join("")}</div>
       </div>
       <div class="stepper">
-        <div class="lbl">횟수</div><div class="val">${r.reps}<small>회</small></div>
+        <div class="lbl">횟수</div><div class="val" onclick="typeVal('reps')">${r.reps}<small>회</small></div>
         <div class="bt"><button onclick="adj('reps',-1)">−</button><button onclick="adj('reps',1)">＋</button></div>
         <div class="chips">${[8, 10, 12, 15].map(n => `<button class="${n === r.reps ? "on" : ""}" onclick="setReps(${n})">${n}</button>`).join("")}</div>
       </div>
@@ -410,6 +411,20 @@ function adj(k, d) {
   if (k === "kg") r.kg = Math.max(0, Math.round((r.kg + d * curStep(e.ex)) * 100) / 100);
   else r.reps = Math.max(0, r.reps + d);
   saveCur(); renderExercise();
+}
+// 큰 숫자를 누르면 입력칸으로 바뀜. 입력 끝나면(엔터/포커스 아웃) 반영
+function typeVal(k) {
+  const e = cur.entries[exIdx], r = e.rows[sel];
+  const box = event.currentTarget;
+  box.innerHTML = `<input type="number" inputmode="decimal" step="${k === "kg" ? "0.25" : "1"}" min="0" value="${k === "kg" ? fmt(r.kg) : r.reps}">`;
+  const inp = box.firstChild; inp.focus(); inp.select();
+  const done = () => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v) && v >= 0) { if (k === "kg") r.kg = Math.round(v * 100) / 100; else r.reps = Math.round(v); saveCur(); }
+    renderExercise();
+  };
+  inp.addEventListener("blur", done);
+  inp.addEventListener("keydown", ev => { if (ev.key === "Enter") inp.blur(); });
 }
 function setReps(n) { cur.entries[exIdx].rows[sel].reps = n; saveCur(); renderExercise(); }
 function setStep(s) { DB.steps[cur.entries[exIdx].ex] = s; save(); renderExercise(); }
@@ -525,7 +540,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v13 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v14 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
