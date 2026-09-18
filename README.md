@@ -48,6 +48,8 @@ python serve.py --test        # 동기화를 헬스일지_테스트.xlsx 에 (�
 3. 홈 화면 상단에 **오프라인 준비됨 ✓** 뜨면 끝. 이후 PC 꺼도 됨
 4. 확인: Wi-Fi 끄고 아이콘으로 열어보기
 
+> ⚠️ **PC IP를 고정하세요.** 설치된 앱은 설치할 때의 주소(`http://<PC IP>:8123`)를 자기 주소로 기억합니다. 공유기가 나중에 PC에 다른 IP를 주면 동기화도, 앱 갱신도 그 주소를 못 찾습니다. Windows 이더넷 설정에서 수동 IP로 바꾸거나, 공유기 DHCP에서 PC MAC에 IP를 예약해 두세요.
+>
 > 삼성 인터넷은 http 주소 그대로 됐고, 크롬은 안 되면 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`에 주소를 넣어야 할 수 있음.
 
 ### 엑셀 동기화
