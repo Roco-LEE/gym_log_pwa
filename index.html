@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<title>헬스일지</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0b0f14; --card:#151b23; --card2:#1c242e; --line:#2a3440;
+    --fg:#f2f5f8; --dim:#8a96a3; --acc:#4f9cff; --ok:#3ddc84; --warn:#ffb347; --bad:#ff5c5c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
+  [data-hold]{touch-action:pan-y;}
+  html,body{margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:-apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif; overflow:hidden;}
+  #app{height:100vh; height:100dvh; display:flex; flex-direction:column;}
+  .top{display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line); flex:0 0 auto;}
+  .top .t{font-size:18px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .body{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px;}
+  .foot{flex:0 0 auto; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg);}
+  button{font:inherit; color:inherit; white-space:nowrap; background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:17px; font-weight:600;}
+  button:active{filter:brightness(1.3);}
+  button.big{width:100%; padding:20px; font-size:22px; border-radius:18px;}
+  .row > button.big{min-width:0; white-space:normal; font-size:18px; padding:16px 8px; line-height:1.25;}
+  button.acc{background:var(--acc); border-color:var(--acc); color:#fff;}
+  button.ok{background:var(--ok); border-color:var(--ok); color:#062;}
+  button.warn{background:var(--warn); border-color:var(--warn); color:#321;}
+  button.ghost{background:transparent;}
+  button.sm{padding:8px 12px; font-size:14px; border-radius:10px;}
+  button:disabled{opacity:.4;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
+  .row{display:flex; align-items:center; gap:10px;}
+  .dim{color:var(--dim);} .small{font-size:13px;} .mt{margin-top:10px;}
+  .list button{display:flex; width:100%; text-align:left; align-items:center; gap:10px; margin-bottom:8px; padding:16px 14px; font-size:19px;}
+  .list button .n{flex:1;}
+  .list button.done{opacity:.55;}
+  .list button .chk{width:28px; height:28px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:16px;}
+  .list button.done .chk{background:var(--ok); border-color:var(--ok); color:#062;}
+
+  /* 운동 화면 */
+  .exname{font-size:30px; font-weight:800; line-height:1.15;}
+  .last{margin-top:6px; font-size:15px; color:var(--dim);}
+  .last b{color:var(--fg); font-weight:600;}
+  .sets{margin-top:12px;}
+  .set{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:14px; border:2px solid transparent; background:var(--card); margin-bottom:8px;}
+  .set.sel{border-color:var(--acc); background:var(--card2);}
+  .set.done{opacity:.6;}
+  .set.done.sel{opacity:1;}
+  .set .lab{width:36px; font-size:15px; font-weight:700; color:var(--dim);}
+  .set .lab.w{color:var(--warn);}
+  .set .v{flex:1; font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.5px;}
+  .set .v small{font-size:16px; color:var(--dim); font-weight:600; margin:0 3px;}
+  .set .st{width:30px; height:30px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800;}
+  .set.done .st{background:var(--ok); border-color:var(--ok); color:#062;}
+  .ctrl{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .stepper{background:var(--card); border-radius:16px; padding:10px 10px 8px; text-align:center; display:flex; flex-direction:column; gap:8px;}
+  .stepper .lbl{font-size:12px; color:var(--dim); font-weight:700; letter-spacing:.5px;}
+  .stepper .val{font-size:44px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1; margin:-4px 0 0;}
+  .stepper .val small{font-size:15px; color:var(--dim); font-weight:600; margin-left:2px;}
+  .stepper .bt{display:flex; gap:8px;}
+  .stepper .bt button{flex:1; font-size:30px; height:52px; padding:0; border-radius:12px; line-height:1;}
+  .chips{display:flex; gap:5px;}
+  .chips button{flex:1; min-width:0; padding:0; height:30px; font-size:13px; border-radius:15px; font-variant-numeric:tabular-nums;}
+  .chips button.on{background:var(--acc); border-color:var(--acc); color:#fff;}
+  button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
+  button.pick.on{background:var(--acc); border-color:var(--acc); color:#fff;}
+  button.pick.in{opacity:.5;}
+  button.sm.ok{font-size:14px;}
+  .rest{position:fixed; inset:0; background:rgba(5,8,12,.94); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:50;}
+  .rest .n{font-size:120px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1;}
+  .rest .n.over{color:var(--warn);}
+  .rest .l{font-size:18px; color:var(--dim); margin-bottom:12px;}
+  .rest .next{margin-top:14px; font-size:20px; color:var(--fg);}
+  .rest button{margin-top:28px; width:70%;}
+  .hidden{display:none !important;}
+  .hist{font-size:14px; color:var(--dim); margin-top:8px; line-height:1.6;}
+  .hist b{color:var(--fg); font-weight:600;}
+  .pill{display:inline-block; padding:2px 8px; border-radius:10px; background:var(--card2); font-size:12px; color:var(--dim); margin-right:4px;}
+  input[type=text], select, textarea{font:inherit; color:inherit; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; width:100%; font-size:17px;}
+  textarea{min-height:60px; user-select:text; -webkit-user-select:text;}
+  h3{margin:18px 0 8px; font-size:15px; color:var(--dim); font-weight:700;}
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:40; display:flex; align-items:flex-end;}
+  .modal .box{background:var(--card); width:100%; max-height:90vh; max-height:90dvh; display:flex; flex-direction:column; border-radius:20px 20px 0 0;}
+  .modal .mhead{flex:0 0 auto; padding:14px 14px 6px;}
+  .modal .mbody{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 14px 14px;}
+  .modal .mfoot{flex:0 0 auto; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);}
+  .modal .mfoot button{flex:1; padding:16px; font-size:18px;}
+  .sess{display:flex; gap:10px; align-items:center; padding:12px; background:var(--card); border-radius:14px; margin-bottom:8px;}
+  .sess .d{font-weight:700; font-size:17px; width:74px;}
+  .sess .s{flex:1; color:var(--dim); font-size:14px; line-height:1.4;}
+  .toast{position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:10px 18px; border-radius:20px; font-weight:700; z-index:60; opacity:0; transition:opacity .2s; pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+<script>
+/* ===================== 기본 데이터 (헬스일지.xlsx 에서 가져옴) ===================== */
+const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "레그프레스", "p": "하체", "t": "머신", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바이셉스 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
+
+const ROUTINES = {
+  "A": [
+    {ex:"랫풀다운", sets:3, rest:90},
+    {ex:"체스트프레스", sets:3, rest:90},
+    {ex:"시티드로우", sets:3, rest:90},
+    {ex:"레그프레스", sets:3, rest:120},
+    {ex:"숄더프레스", sets:2, rest:90},
+  ],
+  "B": [
+    {ex:"턱걸이(보조)", sets:3, rest:90},
+    {ex:"인클라인 체스트프레스", sets:3, rest:90},
+    {ex:"케이블 로우", sets:3, rest:90},
+    {ex:"레그익스텐션", sets:2, rest:90},
+    {ex:"레그컬", sets:2, rest:90},
+    {ex:"사이드 레터럴 레이즈", sets:2, rest:60},
+  ],
+};
+
+
+/* ===================== 저장소 ===================== */
+// DB = { sessions:[{id,date,routine,start,end,entries:[{ex,warm:{kg,reps}|null,sets:[{kg,reps}],memo}]}],
+//        exercises:[...], settings:{rest}, steps:{운동명:step} }
+const KEY = "gymlog.v1", CUR = "gymlog.cur";
+let DB = load(KEY) || null;
+if (!DB) {
+  DB = { sessions: [], exercises: DEFAULT_EXERCISES.slice(), settings: { rest: 90 }, steps: {}, synced: [] };
+  save();
+  // seed.json 이 서버에 있으면(엑셀에서 옮겨온 과거 기록) 첫 실행 때 한 번만 들여옴. 없으면 그냥 빈 상태로 시작.
+  // 형식: {"rows":[[날짜, 운동, 워밍업kg, 회, 1세트kg, 회, ... 6세트kg, 회, 메모], ...]}
+  fetch("seed.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.rows || !j.rows.length) return;
+    const byDate = {};
+    for (const r of j.rows) {
+      const [d, ex, wk, wr, ...rest] = r; const memo = rest.pop();
+      const sets = [];
+      for (let i = 0; i < 12; i += 2) if (rest[i] != null) sets.push({ kg: rest[i], reps: rest[i + 1] });
+      (byDate[d] = byDate[d] || []).push({ ex, warm: wk != null ? { kg: wk, reps: wr } : null, sets, memo: memo || "" });
+    }
+    for (const d of Object.keys(byDate).sort())
+      DB.sessions.push({ id: "seed-" + d, date: d, routine: "excel", start: null, end: null, entries: byDate[d], fromExcel: true });
+    save(); render(); toast(`엑셀 기록 ${j.rows.length}줄 가져옴`);
+  }).catch(() => { });
+}
+function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
+function saveCur() { if (cur) localStorage.setItem(CUR, JSON.stringify(cur)); else localStorage.removeItem(CUR); }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+
+/* ===================== 유틸 ===================== */
+const $ = s => document.querySelector(s);
+const app = $("#app");
+function h(html) { app.innerHTML = html; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function md(d) { return d.slice(5).replace("-", "/"); }
+function fmt(n) { return (Math.round(n * 100) / 100).toString(); }
+function exInfo(name) { return DB.exercises.find(e => e.n === name) || { n: name, p: "", t: "", step: 2.5, rep: "" }; }
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 1500); }
+function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } }
+let audioCtx;
+function beep(times) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < times; i++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination); o.frequency.value = 880;
+      const t0 = audioCtx.currentTime + i * 0.25; g.gain.setValueAtTime(0.3, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+      o.start(t0); o.stop(t0 + 0.2);
+    }
+  } catch (e) { }
+}
+// 특정 운동의 과거 기록(최신순). 진행 중 세션 제외
+function exHistory(ex) {
+  const out = [];
+  for (const s of DB.sessions) for (const e of s.entries) if (e.ex === ex && e.sets.length) out.push({ date: s.date, ...e });
+  return out.sort((a, b) => b.date < a.date ? -1 : 1);
+}
+function bestKg(ex) { const hs = exHistory(ex); let b = null; for (const e of hs) for (const s of e.sets) if (b == null || s.kg > b) b = s.kg; return b; }
+function setsText(e) {
+  // 33.75×12 ×3  형태로 압축
+  const parts = []; let prev = null, cnt = 0;
+  const flush = () => { if (prev) parts.push(fmt(prev.kg) + "×" + prev.reps + (cnt > 1 ? " ×" + cnt : "")); };
+  for (const s of e.sets) { if (prev && prev.kg === s.kg && prev.reps === s.reps) cnt++; else { flush(); prev = s; cnt = 1; } }
+  flush();
+  return (e.warm ? "W " + fmt(e.warm.kg) + "×" + e.warm.reps + " · " : "") + parts.join(", ");
+}
+
+/* ===================== 화면 이동 ===================== */
+let cur = load(CUR); // 진행 중 세션 {date,routine,start,entries:[{ex,rest,rows:[{type:'W'|1..,kg,reps,done}],memo}]}
+let view = cur ? "session" : "home", exIdx = 0, sel = 0;
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => wakeLock = null); }
+    if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && cur) keepAwake(true); });
+function go(v) { view = v; render(); }
+function render() {
+  if (view === "home") renderHome();
+  else if (view === "session") renderSession();
+  else if (view === "exercise") renderExercise();
+  else if (view === "detail") renderDetail();
+}
+
+/* ===================== 홈 ===================== */
+let detailId = null;
+function renderHome() {
+  keepAwake(false);
+  const sessions = DB.sessions.slice().sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 30);
+  h(`
+  <div class="top"><div class="t">헬스일지</div><span class="dim small" id="offl"></span><button class="sm ghost" onclick="openSettings()">⚙</button></div>
+  <div class="body">
+    ${cur ? `<div class="card"><div class="dim small">${md(cur.date)} 시작한 운동이 진행 중 · ${cur.entries.filter(e => e.rows.some(r => r.done)).length}개 운동 함</div>
+      <button class="big warn mt" onclick="go('session')">이어하기 →</button>
+      <div class="row mt" style="gap:8px"><button style="flex:1" onclick="finishSession()">여기까지 저장</button><button style="flex:1;color:var(--bad)" onclick="cancelSession()">버리기</button></div></div>` : `
+    <div class="card">
+      <div class="dim small">오늘 ${today()}</div>
+      <div class="row mt" style="gap:8px">
+        <button class="big acc" style="flex:1" onclick="startSession('A')">A 루틴</button>
+        <button class="big acc" style="flex:1" onclick="startSession('B')">B 루틴</button>
+      </div>
+      <button class="big mt" onclick="startSession('free')">하나씩 골라서 시작</button>
+    </div>`}
+    ${unsyncedCount() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">엑셀로 안 보낸 기록 ${unsyncedCount()}일</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
+      <button class="acc" id="syncBtn" onclick="syncNow()">동기화</button></div>` : ""}
+    <h3>지난 기록</h3>
+    ${sessions.map(s => `<div class="sess" data-hold="holdDeleteSession:${s.id}" onclick="showDetail('${s.id}')">
+        <div class="d">${md(s.date)}</div>
+        <div class="s">${s.entries.map(e => esc(e.ex) + " " + (e.sets.length ? fmt(Math.max(...e.sets.map(x => x.kg))) + "kg×" + e.sets.length : "")).join(" · ")}</div>
+        <div class="dim">›</div></div>`).join("") || `<div class="dim">아직 없음</div>`}
+  </div>
+  <div class="foot row">
+    <button style="flex:1" onclick="exportJSON()">내보내기</button>
+    <button style="flex:1" onclick="shareJSON()">공유</button>
+    <button style="flex:1" onclick="importJSON()">가져오기</button>
+  </div>`);
+  offlineStatus().then(t => { const el = $("#offl"); if (el) el.innerHTML = t; });
+}
+// 서비스워커가 살아 있고 index.html 이 캐시에 있으면 헬스장(오프라인)에서도 열림
+async function offlineStatus() {
+  try {
+    if (!("serviceWorker" in navigator)) return `<span style="color:var(--bad)">오프라인 ✗</span>`;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const keys = await caches.keys();
+    const c = keys.length ? await caches.open(keys[keys.length - 1]) : null;
+    const hit = c && (await c.match("./index.html") || await c.match("./"));
+    return reg && reg.active && hit ? `<span style="color:var(--ok)">오프라인 준비됨 ✓</span>` : `<span style="color:var(--warn)">오프라인 준비 안 됨</span>`;
+  } catch (e) { return `<span style="color:var(--bad)">오프라인 ✗</span>`; }
+}
+function showDetail(id) { detailId = id; go("detail"); }
+function renderDetail() {
+  const s = DB.sessions.find(x => x.id === detailId); if (!s) return go("home");
+  h(`
+  <div class="top"><button class="sm ghost" onclick="go('home')">‹ 뒤로</button><div class="t">${s.date} ${s.routine === "excel" ? "(엑셀)" : s.routine === "free" ? "" : s.routine + " 루틴"}</div>
+    <button class="sm ghost" style="color:var(--bad)" onclick="deleteSession('${s.id}')">삭제</button></div>
+  <div class="body">
+    ${s.entries.map(e => `<div class="card"><div style="font-size:19px;font-weight:700">${esc(e.ex)}</div>
+      <div class="hist"><b>${setsText(e)}</b>${e.memo ? "<br>" + esc(e.memo) : ""}</div></div>`).join("")}
+    <div class="dim small">${s.start && s.end ? Math.round((s.end - s.start) / 60000) + "분 소요 · " : ""}${s.fromExcel ? "엑셀에서 가져옴" : (DB.synced || []).includes(s.id) ? "엑셀에 보냄 ✓" : "엑셀에 아직 안 보냄"}</div>
+  </div>`);
+}
+function deleteSession(id) {
+  const s = DB.sessions.find(x => x.id === id); if (!s) return;
+  if (!confirm(`${s.date} 기록을 삭제할까요?`)) return;
+  DB.sessions = DB.sessions.filter(x => x.id !== id); save(); go("home");
+}
+
+/* ===================== 세션 ===================== */
+function startSession(routine) {
+  const plan = ROUTINES[routine] || [];
+  cur = { id: "s-" + Date.now(), date: today(), routine, start: Date.now(), entries: plan.map(p => makeEntry(p.ex, p.sets, p.rest)) };
+  saveCur(); exIdx = 0;
+  go("session");
+  if (!cur.entries.length) pickExercise();
+}
+// 지난 기록을 기본값으로 채운 운동 항목 생성
+function row(type, kg, reps) { return { type, kg, reps, done: false, pre: { kg, reps } }; }
+function makeEntry(ex, plannedSets, rest) {
+  const hs = exHistory(ex), last = hs[0];
+  const rows = [];
+  if (last && last.warm) rows.push(row("W", last.warm.kg, last.warm.reps));
+  else if (!last && exInfo(ex).t !== "보조머신" && exInfo(ex).t !== "맨몸") rows.push(row("W", 0, 10));
+  const n = Math.max(plannedSets || 0, last ? last.sets.length : 0, 1);
+  for (let i = 0; i < n; i++) {
+    const src = last ? (last.sets[i] || last.sets[last.sets.length - 1]) : { kg: 0, reps: 10 };
+    rows.push(row(i + 1, src.kg, src.reps));
+  }
+  return { ex, rest: rest || DB.settings.rest, rows, memo: "" };
+}
+function renderSession() {
+  keepAwake(true);
+  h(`
+  <div class="top"><button class="sm ghost" onclick="go('home')">‹ 홈</button><div class="t">${cur.routine === "free" ? "자유 운동" : cur.routine + " 루틴"} · ${md(cur.date)}</div>
+    <div class="dim small" id="elapsed"></div></div>
+  <div class="body list">
+    ${cur.entries.map((e, i) => {
+      const done = e.rows.filter(r => r.done && r.type !== "W").length, total = e.rows.filter(r => r.type !== "W").length;
+      return `<button class="${done && done >= total ? "done" : ""}" data-hold="holdRemoveEntry:${i}" onclick="openExercise(${i})">
+        <span class="chk">${done && done >= total ? "✓" : ""}</span>
+        <span class="n">${esc(e.ex)}<div class="dim small" style="font-weight:500">${done ? doneText(e) : (exHistory(e.ex)[0] ? "지난번 " + setsText(exHistory(e.ex)[0]) : "첫 기록")}</div></span>
+        <span class="dim">${done}/${total}</span></button>`;
+    }).join("")}
+    <button class="ghost" style="width:100%;border-style:dashed" onclick="pickExercise()">＋ 운동 추가</button>
+    <div class="dim small" style="text-align:center;margin-top:6px">운동을 꾹 누르면 목록에서 뺌</div>
+  </div>
+  <div class="foot row">
+    <button class="ghost" style="color:var(--bad)" onclick="cancelSession()">취소</button>
+    <button class="big ok" style="flex:1" onclick="finishSession()">운동 끝 · 저장</button>
+  </div>`);
+  tickElapsed();
+}
+function doneText(e) { return setsText(rowsToEntry(e)); }
+function rowsToEntry(e) {
+  const w = e.rows.find(r => r.type === "W" && r.done);
+  return { ex: e.ex, warm: w ? { kg: w.kg, reps: w.reps } : null, sets: e.rows.filter(r => r.type !== "W" && r.done).map(r => ({ kg: r.kg, reps: r.reps })), memo: e.memo };
+}
+let elapsedT;
+function tickElapsed() {
+  clearInterval(elapsedT);
+  const f = () => { const el = $("#elapsed"); if (!el || !cur) return clearInterval(elapsedT); el.textContent = Math.floor((Date.now() - cur.start) / 60000) + "분"; };
+  f(); elapsedT = setInterval(f, 15000);
+}
+function cancelSession() {
+  if (!confirm("오늘 운동을 저장하지 않고 취소할까요?")) return;
+  cur = null; saveCur(); go("home");
+}
+function finishSession() {
+  const entries = cur.entries.map(rowsToEntry).filter(e => e.sets.length || e.warm);
+  if (!entries.length) { if (!confirm("완료한 세트가 없어요. 그냥 닫을까요?")) return; cur = null; saveCur(); return go("home"); }
+  DB.sessions.push({ id: cur.id, date: cur.date, routine: cur.routine, start: cur.start, end: Date.now(), entries });
+  save(); cur = null; saveCur(); toast("저장됨"); go("home");
+}
+// 운동 고르기: 누르면 바로 그 운동으로 들어감 (자리 상황 봐가며 하나씩 고르게)
+function pickExercise(afterExercise) {
+  const inSession = new Set(cur.entries.map(e => e.ex));
+  const recent = [], seen = new Set();
+  for (const s of DB.sessions.slice().sort((a, b) => b.date < a.date ? -1 : 1)) for (const e of s.entries) if (!seen.has(e.ex)) { seen.add(e.ex); recent.push(e.ex); }
+  const groups = { "최근 한 운동": recent.slice(0, 12).map(n => exInfo(n)) };
+  for (const e of DB.exercises) (groups[e.p] = groups[e.p] || []).push(e);
+  const chip = e => `<button class="sm pick ${inSession.has(e.n) ? "in" : ""}" onclick="addExercise('${esc(e.n)}')">${esc(e.n)}${inSession.has(e.n) ? " ✓" : ""}</button>`;
+  openModal(`${Object.keys(groups).filter(p => groups[p].length).map(p => `<h3>${p}</h3><div class="row" style="flex-wrap:wrap;gap:8px">${groups[p].map(chip).join("")}</div>`).join("")}
+    <h3>목록에 없는 운동</h3>
+    <div class="row"><input type="text" id="newEx" placeholder="운동 이름"><button onclick="addExercise(document.getElementById('newEx').value.trim())">추가</button></div>`,
+    { head: `<div style="font-size:18px;font-weight:700">${afterExercise ? "다음 운동 고르기" : "운동 고르기"}</div>`,
+      foot: afterExercise ? `<button class="ok" style="flex:2" onclick="closeModal();finishSession()">오늘은 여기까지 · 저장</button>` : "" });
+}
+function addExercise(name) {
+  if (!name) return;
+  if (!DB.exercises.find(e => e.n === name)) { DB.exercises.push({ n: name, p: "기타", t: "", step: 2.5, rep: "" }); save(); }
+  cur.entries.push(makeEntry(name, 3, DB.settings.rest));
+  saveCur(); closeModal(); openExercise(cur.entries.length - 1);
+}
+
+/* ===================== 운동 화면 (핵심) ===================== */
+function openExercise(i) {
+  exIdx = i; const e = cur.entries[i];
+  sel = e.rows.findIndex(r => !r.done); if (sel < 0) sel = e.rows.length - 1;
+  go("exercise");
+}
+function curStep(ex) { return DB.steps[ex] || exInfo(ex).step || 2.5; }
+function renderExercise() {
+  keepAwake(true);
+  const e = cur.entries[exIdx], info = exInfo(e.ex), hs = exHistory(e.ex), last = hs[0], best = bestKg(e.ex);
+  const r = e.rows[sel];
+  const allDone = e.rows.every(x => x.done);
+  const step = curStep(e.ex);
+  h(`
+  <div class="top"><button class="sm ghost" onclick="go('session')">‹ 목록</button><div class="t">${exIdx + 1}/${cur.entries.length}</div>
+    <button class="sm ghost" style="font-size:22px;padding:4px 16px" onclick="exMenu()">⋯</button></div>
+  <div class="body" style="padding-bottom:0">
+    <div class="exname">${esc(e.ex)}</div>
+    <div class="last">${last ? `지난번 ${md(last.date)} <b>${setsText(last)}</b>` : "첫 기록"}${best != null ? ` <span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${info.rep}회</span>` : ""}</div>
+    <div class="sets">
+      ${e.rows.map((x, i) => `<div class="set ${i === sel ? "sel" : ""} ${x.done ? "done" : ""}" onclick="selectRow(${i})">
+        <div class="lab ${x.type === "W" ? "w" : ""}">${x.type === "W" ? "W" : x.type}</div>
+        <div class="v">${fmt(x.kg)}<small>kg</small>${x.reps}<small>회</small></div>
+        <div class="st">${x.done ? "✓" : ""}</div></div>`).join("")}
+      <button class="ghost sm" style="width:100%;border-style:dashed" onclick="addRow()">＋ 세트</button>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="ctrl">
+      <div class="stepper">
+        <div class="lbl">무게</div><div class="val">${fmt(r.kg)}<small>kg</small></div>
+        <div class="bt"><button onclick="adj('kg',-1)">−</button><button onclick="adj('kg',1)">＋</button></div>
+        <div class="chips">${[1.25, 2.5, 5, 10].map(s => `<button class="${s === step ? "on" : ""}" onclick="setStep(${s})">±${s}</button>`).join("")}</div>
+      </div>
+      <div class="stepper">
+        <div class="lbl">횟수</div><div class="val">${r.reps}<small>회</small></div>
+        <div class="bt"><button onclick="adj('reps',-1)">−</button><button onclick="adj('reps',1)">＋</button></div>
+        <div class="chips">${[8, 10, 12, 15].map(n => `<button class="${n === r.reps ? "on" : ""}" onclick="setReps(${n})">${n}</button>`).join("")}</div>
+      </div>
+    </div>
+    ${allDone
+      ? `<div class="row"><button class="big" style="flex:1" onclick="addRow()">＋ 한 세트 더</button><button class="big acc" style="flex:1.3" onclick="nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동 →" : "운동 고르기 →"}</button></div>`
+      : `<div class="row"><button class="big ghost" style="flex:0 0 auto;width:auto;padding:20px 14px;font-size:16px" onclick="endExercise()">이 운동<br>끝</button><button class="big ok" style="flex:1" onclick="completeSet()">${r.done ? "수정 완료" : (r.type === "W" ? "워밍업 완료 ✓" : r.type + "세트 완료 ✓")}</button></div>`}
+  </div>`);
+}
+function selectRow(i) { sel = i; renderExercise(); }
+function adj(k, d) {
+  const e = cur.entries[exIdx], r = e.rows[sel];
+  if (k === "kg") r.kg = Math.max(0, Math.round((r.kg + d * curStep(e.ex)) * 100) / 100);
+  else r.reps = Math.max(0, r.reps + d);
+  saveCur(); renderExercise();
+}
+function setReps(n) { cur.entries[exIdx].rows[sel].reps = n; saveCur(); renderExercise(); }
+function setStep(s) { DB.steps[cur.entries[exIdx].ex] = s; save(); renderExercise(); }
+function copyPrev() {
+  const e = cur.entries[exIdx]; if (sel === 0) return;
+  const p = e.rows[sel - 1]; e.rows[sel].kg = p.kg; e.rows[sel].reps = p.reps; saveCur(); renderExercise();
+}
+function addRow() {
+  const e = cur.entries[exIdx], lastRow = e.rows[e.rows.length - 1];
+  const n = e.rows.filter(x => x.type !== "W").length + 1;
+  e.rows.push(row(n, lastRow.kg, lastRow.reps));
+  sel = e.rows.length - 1; saveCur(); renderExercise();
+}
+function completeSet() {
+  const e = cur.entries[exIdx], r = e.rows[sel];
+  const wasDone = r.done; r.done = true;
+  // 다음 미완료 세트로 이동하면서 방금 한 값을 기본값으로
+  const next = e.rows.findIndex((x, i) => i > sel && !x.done);
+  if (!wasDone && next >= 0) {
+    const n = e.rows[next];
+    // 본세트에서 무게/횟수를 지난번과 다르게 바꿨으면 다음 세트도 그 값으로 (워밍업은 제외)
+    if (r.type !== "W" && (r.kg !== r.pre.kg || r.reps !== r.pre.reps)) { n.kg = r.kg; n.reps = r.reps; }
+    sel = next;
+  } else if (next < 0) { const any = e.rows.findIndex(x => !x.done); sel = any >= 0 ? any : sel; }
+  saveCur(); vibrate(30);
+  if (!wasDone) startRest(e.rest || DB.settings.rest); else renderExercise();
+}
+// 안 한 세트는 버리고 이 운동을 마침 (세트 수를 미리 정하지 않아도 되게)
+function endExercise() {
+  const e = cur.entries[exIdx];
+  const doneRows = e.rows.filter(x => x.done);
+  if (!doneRows.length) { if (!confirm("완료한 세트가 없어요. 이 운동을 오늘 목록에서 뺄까요?")) return; cur.entries.splice(exIdx, 1); saveCur(); return go("session"); }
+  e.rows = doneRows; saveCur();
+  nextExercise();
+}
+function nextExercise() {
+  if (exIdx + 1 < cur.entries.length) openExercise(exIdx + 1);
+  else { go("session"); pickExercise(true); }
+}
+function exMenu() {
+  const e = cur.entries[exIdx], hs = exHistory(e.ex).slice(0, 5);
+  openModal(`<h3 style="margin-top:4px">최근 기록</h3><div class="hist">${hs.map(x => `${md(x.date)} <b>${setsText(x)}</b>`).join("<br>") || "없음"}</div>
+    <h3>메모</h3><textarea id="memo" placeholder="느낌, 자세, 다음에 할 것">${esc(e.memo)}</textarea>
+    <div class="row mt"><button style="flex:1" onclick="saveMemo()">메모 저장</button></div>
+    <h3>세트</h3>
+    <div class="row" style="flex-wrap:wrap"><button style="flex:1 1 45%" onclick="closeModal();copyPrev()">위 세트 값 복사</button><button style="flex:1 1 45%" onclick="resetRow()">완료 취소</button><button style="flex:1 1 100%" onclick="removeRow()">선택한 세트 삭제</button></div>
+    <h3>운동</h3>
+    <div class="row"><button style="flex:1;color:var(--bad)" onclick="removeExercise()">이 운동 오늘 빼기</button></div>`,
+    { head: `<div style="font-size:18px;font-weight:700">${esc(e.ex)}</div>` });
+}
+function saveMemo() { cur.entries[exIdx].memo = $("#memo").value; saveCur(); closeModal(); toast("저장"); }
+function removeRow() {
+  const e = cur.entries[exIdx]; if (e.rows.length <= 1) return;
+  e.rows.splice(sel, 1);
+  let n = 1; for (const x of e.rows) if (x.type !== "W") x.type = n++;
+  sel = Math.min(sel, e.rows.length - 1); saveCur(); closeModal(); renderExercise();
+}
+function resetRow() { cur.entries[exIdx].rows[sel].done = false; saveCur(); closeModal(); renderExercise(); }
+function removeExercise() {
+  cur.entries.splice(exIdx, 1); saveCur(); closeModal(); go("session");
+}
+
+/* ===================== 휴식 타이머 ===================== */
+let restT, restEnd;
+function startRest(sec) {
+  restEnd = Date.now() + sec * 1000;
+  const e = cur.entries[exIdx], nxt = e.rows[sel];
+  const done = e.rows.every(x => x.done);
+  const nextTxt = done ? "계획한 세트 끝" : `다음: ${nxt.type === "W" ? "워밍업" : nxt.type + "세트"} ${fmt(nxt.kg)}kg × ${nxt.reps}회`;
+  const div = document.createElement("div"); div.className = "rest"; div.id = "rest";
+  div.innerHTML = `<div class="l">휴식</div><div class="n" id="restN">${sec}</div><div class="next">${nextTxt}</div>
+    <div class="row" style="margin-top:20px;gap:8px"><button class="sm" onclick="restAdd(-15)">−15초</button><button class="sm" onclick="restAdd(15)">＋15초</button></div>
+    ${done ? `<div class="row" style="margin-top:24px;width:90%"><button class="big" style="flex:1" onclick="endRest();addRow()">＋ 한 세트 더</button><button class="big acc" style="flex:1" onclick="endRest();nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동 →" : "운동 고르기 →"}</button></div>
+    <button class="ghost" style="margin-top:16px;width:auto" onclick="endRest()">타이머 닫기</button>`
+    : `<button class="big" onclick="endRest()">건너뛰기</button>`}`;
+  document.body.appendChild(div);
+  clearInterval(restT); let fired = false;
+  restT = setInterval(() => {
+    const left = Math.ceil((restEnd - Date.now()) / 1000), n = $("#restN"); if (!n) return clearInterval(restT);
+    n.textContent = left > 0 ? left : "+" + (-left);
+    if (left <= 0 && !fired) { fired = true; n.classList.add("over"); vibrate([300, 100, 300, 100, 300]); beep(3); }
+  }, 250);
+}
+function restAdd(s) { restEnd += s * 1000; }
+function endRest() { clearInterval(restT); const d = $("#rest"); if (d) d.remove(); renderExercise(); }
+
+/* ===================== PC 엑셀 동기화 ===================== */
+function unsynced() { return DB.sessions.filter(s => !s.fromExcel && !(DB.synced || []).includes(s.id)); }
+function unsyncedCount() { return unsynced().length; }
+async function syncNow() {
+  const btn = $("#syncBtn"); if (btn) { btn.disabled = true; btn.textContent = "보내는 중"; }
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch("api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions: unsynced() }), signal: ctl.signal });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
+    if (!j.test) { DB.synced = [...new Set([...(DB.synced || []), ...(j.written || [])])]; save(); }
+    toast(j.rows ? `${j.target || "엑셀"}에 ${j.rows}줄 추가됨${j.test ? " (테스트)" : ""}` : "새로 보낼 게 없음"); renderHome();
+    if (j.test) { const b = $("#syncBtn"); if (b) { b.disabled = false; b.textContent = "동기화"; } }
+  } catch (e) {
+    toast(e.name === "AbortError" || e instanceof TypeError ? "PC에 연결 안 됨 · 집에서 다시" : e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "동기화"; }
+  } finally { clearTimeout(t); }
+}
+
+/* ===================== 설정 / 내보내기 ===================== */
+function openSettings() {
+  openModal(`<h3 style="margin-top:4px">기본 휴식 시간 (초)</h3>
+    <div class="row">${[60, 90, 120, 150].map(s => `<button style="flex:1" class="${DB.settings.rest === s ? "acc" : ""}" onclick="DB.settings.rest=${s};save();openSettings()">${s}</button>`).join("")}</div>
+    <h3>데이터</h3>
+    <div class="dim small">기록 ${DB.sessions.length}일 · 운동 ${DB.exercises.length}종 · 저장 ${(JSON.stringify(DB).length / 1024).toFixed(1)}KB</div>
+    <div class="row mt"><button style="flex:1;color:var(--bad)" onclick="wipe()">전부 삭제</button></div>
+    ${""}
+    <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
+    <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
+    <div class="dim small mt">v13 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+  offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
+}
+function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
+function exportBlob() { return new Blob([JSON.stringify(DB, null, 1)], { type: "application/json" }); }
+function exportName() { return "헬스일지_" + today() + ".json"; }
+function exportJSON() {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(exportBlob()); a.download = exportName(); a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast("다운로드 폴더에 저장");
+}
+async function shareJSON() {
+  try {
+    const f = new File([exportBlob()], exportName(), { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: "헬스일지" });
+    else exportJSON();
+  } catch (e) { }
+}
+function importJSON() {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = () => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const d = JSON.parse(fr.result); if (!d.sessions) throw 0;
+        // 같은 id 는 덮어쓰지 않고 새 것만 추가
+        const ids = new Set(DB.sessions.map(s => s.id)); let n = 0;
+        for (const s of d.sessions) if (!ids.has(s.id)) { DB.sessions.push(s); n++; }
+        for (const e of (d.exercises || [])) if (!DB.exercises.find(x => x.n === e.n)) DB.exercises.push(e);
+        save(); toast(n + "일 추가됨"); render();
+      } catch (e) { alert("파일 형식이 맞지 않아요"); }
+    };
+    fr.readAsText(inp.files[0]);
+  };
+  inp.click();
+}
+
+/* ===================== 꾹 누르기 ===================== */
+// 요소에 data-hold="함수이름:인자" 를 달면 0.6초 이상 누를 때 그 함수를 부름 (스크롤하면 취소)
+let holdT = null, holdFired = false, holdX = 0, holdY = 0;
+function holdCancel() { clearTimeout(holdT); holdT = null; }
+document.addEventListener("pointerdown", ev => {
+  const el = ev.target.closest("[data-hold]"); if (!el) return;
+  holdFired = false; holdX = ev.clientX; holdY = ev.clientY;
+  holdCancel();
+  holdT = setTimeout(() => {
+    holdT = null; holdFired = true; vibrate(40);
+    const [fn, arg] = el.dataset.hold.split(":");
+    setTimeout(() => window[fn](arg), 50); // confirm() 이 포인터 이벤트를 끊지 않게 살짝 뒤에
+  }, 600);
+}, true);
+document.addEventListener("pointermove", ev => {
+  if (holdT && Math.hypot(ev.clientX - holdX, ev.clientY - holdY) > 10) holdCancel();
+}, true);
+["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, holdCancel, true));
+document.addEventListener("scroll", holdCancel, true);
+document.addEventListener("click", ev => { if (holdFired) { ev.stopPropagation(); ev.preventDefault(); holdFired = false; } }, true);
+document.addEventListener("contextmenu", ev => { if (ev.target.closest("[data-hold]")) ev.preventDefault(); });
+function holdRemoveEntry(i) {
+  i = +i; const e = cur.entries[i];
+  if (!confirm(`"${e.ex}" 을(를) 오늘 목록에서 뺄까요?`)) return;
+  cur.entries.splice(i, 1); saveCur(); renderSession();
+}
+function holdDeleteSession(id) { deleteSession(id); }
+
+/* ===================== 모달 ===================== */
+// openModal(본문, {head: 고정 제목, foot: 고정 하단 버튼들})
+function openModal(html, opt = {}) {
+  closeModal();
+  const m = document.createElement("div"); m.className = "modal"; m.id = "modal";
+  m.innerHTML = `<div class="box">${opt.head ? `<div class="mhead">${opt.head}</div>` : ""}<div class="mbody">${html}</div>
+    <div class="mfoot"><button class="ghost" onclick="closeModal()">닫기</button>${opt.foot || ""}</div></div>`;
+  m.addEventListener("click", ev => { if (ev.target === m) closeModal(); });
+  document.body.appendChild(m);
+}
+function closeModal() { const m = $("#modal"); if (m) m.remove(); }
+
+/* ===================== 뒤로가기 ===================== */
+// 폰 뒤로가기 = 앱 안에서 한 단계 뒤로 (창/타이머 닫기 → 운동 → 목록 → 홈). 홈에서는 앱이 안 꺼지게 막음.
+window.history.pushState({ guard: 1 }, "");
+window.addEventListener("popstate", () => {
+  if ($("#modal")) closeModal();
+  else if ($("#rest")) endRest();
+  else if (view === "exercise") go("session");
+  else if (view === "session" || view === "detail") go("home");
+  window.history.pushState({ guard: 1 }, "");
+});
+
+/* ===================== 시작 ===================== */
+render();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
+</script>
+</body>
+</html>

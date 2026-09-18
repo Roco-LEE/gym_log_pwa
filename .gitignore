@@ -1,0 +1,11 @@
+# 개인 데이터 — 코드만 올리고 기록은 올리지 않음
+seed.json
+synced.json
+synced_test.json
+백업/
+백업_테스트/
+*.xlsx
+
+__pycache__/
+*.pyc
+.claude/
