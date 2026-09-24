@@ -22,11 +22,11 @@ class H(http.server.SimpleHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(n).decode("utf-8"))
-            r = sync_excel.append_sessions(body.get("sessions", []))
+            r = sync_excel.append_sessions(body.get("sessions", []), body.get("exMemo"))
             r["target"] = os.path.basename(sync_excel.XLSX)
             r["test"] = TEST   # 테스트면 앱이 "보냈음" 표시를 남기지 않음 (나중에 진짜 파일에 다시 보낼 수 있게)
             code, out = 200, r
-            print(f"동기화 → {r['target']}: {r['rows']}줄 추가 (세션 {len(r['written'])}개)")
+            print(f"동기화 → {r['target']}: {r['rows']}줄 추가 (세션 {len(r['written'])}개), 운동 메모 {r.get('memos', 0)}개")
         except PermissionError:
             code, out = 409, {"error": "엑셀 파일이 열려 있어요. 닫고 다시 눌러주세요."}
         except Exception as e:

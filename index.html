@@ -48,6 +48,7 @@
   .plan{margin-top:8px; font-size:15px; color:var(--acc); background:rgba(79,156,255,.12); border:1px solid rgba(79,156,255,.35); border-radius:12px; padding:8px 10px;}
   .plan b{color:var(--fg); font-weight:700;}
   .plan .pnote{color:var(--dim); font-size:13px; margin-top:3px; line-height:1.4;}
+  .pin{margin-top:6px; font-size:14px; color:var(--warn); background:rgba(255,179,71,.1); border:1px solid rgba(255,179,71,.3); border-radius:10px; padding:6px 9px; line-height:1.4; white-space:pre-wrap;}
   .last b{color:var(--fg); font-weight:600;}
   .sets{margin-top:12px;}
   .set{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:14px; border:2px solid transparent; background:var(--card); margin-bottom:8px;}
@@ -234,7 +235,7 @@ function renderHome() {
       <button class="big mt" onclick="startSession('free')">하나씩 골라서 시작</button>
     </div>`}
     ${!cur ? openPlans().map(planCard).join("") : ""}
-    ${unsyncedCount() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">엑셀로 안 보낸 기록 ${unsyncedCount()}일</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
+    ${unsyncedCount() || hasExMemo() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">${unsyncedCount() ? `엑셀로 안 보낸 기록 ${unsyncedCount()}일` : "엑셀로 메모 보내기"}</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
       <button class="acc" id="syncBtn" onclick="syncNow()">동기화</button></div>` : ""}
     <h3>지난 기록</h3>
     ${sessions.map(s => `<div class="sess" data-hold="holdDeleteSession:${s.id}" onclick="showDetail('${s.id}')">
@@ -268,7 +269,8 @@ function renderDetail() {
   <div class="top"><button class="sm ghost" onclick="go('home')">‹ 뒤로</button><div class="t">${s.date} ${s.routine === "excel" ? "(엑셀)" : s.routine === "free" ? "" : s.routine + " 루틴"}</div>
     <button class="sm ghost" style="color:var(--bad)" onclick="deleteSession('${s.id}')">삭제</button></div>
   <div class="body">
-    ${s.entries.map(e => `<div class="card"><div style="font-size:19px;font-weight:700">${esc(e.ex)}</div>
+    ${s.memo ? `<div class="card"><div class="dim small">📝 오늘 메모</div><div style="margin-top:4px;white-space:pre-wrap">${esc(s.memo)}</div></div>` : ""}
+    ${s.entries.map(e => `<div class="card"><div style="font-size:19px;font-weight:700">${esc(e.ex)}</div>${exMemo(e.ex) ? `<div class="pin">📌 ${esc(exMemo(e.ex))}</div>` : ""}
       <div class="hist"><b>${setsText(e)}</b>${e.memo ? "<br>" + esc(e.memo) : ""}</div></div>`).join("")}
     <div class="dim small">${s.start && s.end ? Math.round((s.end - s.start) / 60000) + "분 소요 · " : ""}${s.fromExcel ? "엑셀에서 가져옴" : (DB.synced || []).includes(s.id) ? "엑셀에 보냄 ✓" : "엑셀에 아직 안 보냄"}</div>
   </div>`);
@@ -319,6 +321,7 @@ function renderSession() {
         <span class="dim">${done}/${total}</span></button>`;
     }).join("")}
     <button class="ghost" style="width:100%;border-style:dashed" onclick="pickExercise()">＋ 운동 추가</button>
+    <button class="ghost" style="width:100%;border-style:dashed;margin-top:8px;text-align:left;font-size:15px;white-space:normal" onclick="sessionMemo()">📝 ${cur.memo ? esc(cur.memo) : "오늘 메모 (헬스장 상황, 컨디션 …)"}</button>
     <div class="dim small" style="text-align:center;margin-top:6px">운동을 꾹 누르면 목록에서 뺌</div>
   </div>
   <div class="foot row">
@@ -345,7 +348,7 @@ function cancelSession() {
 function finishSession() {
   const entries = cur.entries.map(rowsToEntry).filter(e => e.sets.length || e.warm);
   if (!entries.length) { if (!confirm("완료한 세트가 없어요. 그냥 닫을까요?")) return; cur = null; saveCur(); return go("home"); }
-  DB.sessions.push({ id: cur.id, date: cur.date, routine: cur.routine, start: cur.start, end: Date.now(), entries });
+  DB.sessions.push({ id: cur.id, date: cur.date, routine: cur.routine, start: cur.start, end: Date.now(), entries, memo: cur.memo || "" });
   if (cur.planId) DB.donePlans = [...new Set([...donePlans(), cur.planId])];
   save(); cur = null; saveCur(); toast("저장됨"); go("home");
 }
@@ -370,11 +373,26 @@ function addExercise(name) {
   saveCur(); closeModal(); openExercise(cur.entries.length - 1);
 }
 
+// 오늘 전체에 대한 메모. 동기화하면 엑셀 그날 첫 줄에 [오늘] 로 들어감
+function sessionMemo() {
+  openModal(`<textarea id="smemo" style="min-height:120px" placeholder="예) 3번 머신 고장, 사람 많아 순서 바꿈, 허리 뻐근함">${esc(cur.memo || "")}</textarea>`,
+    { head: `<div style="font-size:18px;font-weight:700">📝 오늘 메모</div>`,
+      foot: `<button class="acc" style="flex:2" onclick="cur.memo=document.getElementById('smemo').value;saveCur();closeModal();renderSession();toast('저장')">저장</button>` });
+}
+
 /* ===================== 운동 화면 (핵심) ===================== */
 function openExercise(i) {
   exIdx = i; const e = cur.entries[i];
   sel = e.rows.findIndex(r => !r.done); if (sel < 0) sel = e.rows.length - 1;
   go("exercise");
+}
+// 운동에 영구히 붙는 메모. 머신 번호·시트 높이·자세 주의점 등, 다음에도 계속 보임
+function exMemo(ex) { return (DB.exMemo || {})[ex] || ""; }
+function setExMemo(ex, txt) {
+  DB.exMemo = DB.exMemo || {};
+  txt = (txt || "").trim();
+  if (txt) DB.exMemo[ex] = txt; else delete DB.exMemo[ex];
+  save();
 }
 function curStep(ex) { return DB.steps[ex] || exInfo(ex).step || 2.5; }
 function renderExercise() {
@@ -388,6 +406,7 @@ function renderExercise() {
     <button class="sm ghost" style="font-size:22px;padding:4px 16px" onclick="exMenu()">⋯</button></div>
   <div class="body" style="padding-bottom:0">
     <div class="exname">${esc(e.ex)}</div>
+    ${exMemo(e.ex) ? `<div class="pin" onclick="exMenu()">📌 ${esc(exMemo(e.ex))}</div>` : ""}
     ${e.plan ? `<div class="plan">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
     <div class="last">${last ? `지난번 ${md(last.date)} <b>${setsText(last)}</b>` : "첫 기록"}${best != null ? ` <span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${info.rep}회</span>` : ""}</div>
     <div class="sets">
@@ -479,15 +498,23 @@ function exMenu() {
   const e = cur.entries[exIdx], hs = exHistory(e.ex).slice(0, 5);
   openModal(`${e.plan ? `<div class="plan" style="margin:4px 0 0">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
     <h3>최근 기록</h3><div class="hist">${hs.map(x => `${md(x.date)} <b>${setsText(x)}</b>`).join("<br>") || "없음"}</div>
-    <h3>메모</h3><textarea id="memo" placeholder="느낌, 자세, 다음에 할 것">${esc(e.memo)}</textarea>
-    <div class="row mt"><button style="flex:1" onclick="saveMemo()">메모 저장</button></div>
+    <h3>📌 이 운동 메모 <span class="dim" style="font-weight:500">· 다음에도 계속 보임</span></h3>
+    <textarea id="exmemo" placeholder="머신 번호, 시트 높이, 자세 주의점 …">${esc(exMemo(e.ex))}</textarea>
+    <h3>오늘 메모 <span class="dim" style="font-weight:500">· 이번 기록에만</span></h3>
+    <textarea id="memo" placeholder="오늘 느낌, 다음에 할 것">${esc(e.memo)}</textarea>
+    <div class="row mt"><button class="acc" style="flex:1" onclick="saveMemo()">메모 저장</button></div>
     <h3>세트</h3>
     <div class="row" style="flex-wrap:wrap"><button style="flex:1 1 45%" onclick="closeModal();copyPrev()">위 세트 값 복사</button><button style="flex:1 1 45%" onclick="resetRow()">완료 취소</button><button style="flex:1 1 100%" onclick="removeRow()">선택한 세트 삭제</button></div>
     <h3>운동</h3>
     <div class="row"><button style="flex:1;color:var(--bad)" onclick="removeExercise()">이 운동 오늘 빼기</button></div>`,
     { head: `<div style="font-size:18px;font-weight:700">${esc(e.ex)}</div>` });
 }
-function saveMemo() { cur.entries[exIdx].memo = $("#memo").value; saveCur(); closeModal(); toast("저장"); }
+function saveMemo() {
+  const e = cur.entries[exIdx];
+  e.memo = $("#memo").value;
+  setExMemo(e.ex, $("#exmemo").value);
+  saveCur(); closeModal(); toast("저장"); renderExercise();
+}
 function removeRow() {
   const e = cur.entries[exIdx]; if (e.rows.length <= 1) return;
   e.rows.splice(sel, 1);
@@ -562,11 +589,12 @@ function planTargetText(it) {
 /* ===================== PC 엑셀 동기화 ===================== */
 function unsynced() { return DB.sessions.filter(s => !s.fromExcel && !(DB.synced || []).includes(s.id)); }
 function unsyncedCount() { return unsynced().length; }
+function hasExMemo() { return Object.keys(DB.exMemo || {}).length > 0; }
 async function syncNow() {
   const btn = $("#syncBtn"); if (btn) { btn.disabled = true; btn.textContent = "보내는 중"; }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
   try {
-    const r = await fetch("api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions: unsynced() }), signal: ctl.signal });
+    const r = await fetch("api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions: unsynced(), exMemo: DB.exMemo || {} }), signal: ctl.signal });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
     if (!j.test) { DB.synced = [...new Set([...(DB.synced || []), ...(j.written || [])])]; save(); }
@@ -588,7 +616,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v15 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v16 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }

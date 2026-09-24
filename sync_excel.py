@@ -7,6 +7,9 @@ serve.py 가 /api/sync 로 받아서 호출하고, 앱에서 내보낸 JSON 파�
 
 - 한 세션의 운동 하나 = [기록] 한 줄. A날짜 C운동 E,F워밍업 G~R 1~6세트 W메모 만 쓰고
   나머지(요일·부위·볼륨·1RM 등)는 시트에 이미 깔린 수식이 계산.
+- 그날 전체 메모는 그 세션 첫 줄 W열에 "[오늘] ..." 로 들어감.
+- 앱에서 운동에 붙여둔 고정 메모(머신 번호 등)는 [운동목록] F열 뒤에 "[폰] ..." 로 붙임.
+  원래 적혀 있던 내용은 건드리지 않고, 다시 동기화하면 [폰] 뒤쪽만 갱신됨.
 - 같은 세션을 두 번 넣지 않도록 넣은 id 를 synced.json 에 기록.
 - 쓰기 전에 백업/ 폴더에 사본을 남김 (최근 10개).
 - openpyxl 로 저장하면 Excel 이 서식을 무시하는 문제가 있어서 생성 스크립트와 같은 후처리를 함.
@@ -19,6 +22,7 @@ SYNCED = os.path.join(HERE, "synced.json")
 BACKUP_DIR = os.path.join(HERE, "..", "백업")
 FIRST_ROW = 3       # 헤더 2줄
 MAX_SETS = 6
+PHONE_MARK = "[폰]"   # [운동목록] 메모에서 앱이 관리하는 구간의 시작 표시
 
 
 def use_test_file():
@@ -87,15 +91,56 @@ def fix_apply_attrs(path):
     shutil.move(tmp, path)
 
 
-def append_sessions(sessions):
-    """sessions: 앱 DB.sessions 형식. 반환: {"written": [id...], "rows": n, "skipped": [id...]}"""
+def _merge_ex_memo(cur, phone):
+    """[운동목록] F열: 원래 쓰던 글은 두고 '[폰] ...' 부분만 갈아끼움."""
+    base = (cur or "").split(PHONE_MARK)[0].strip()
+    phone = (phone or "").strip().replace("\n", " ")
+    if not phone:
+        return base or None
+    return f"{base}  {PHONE_MARK} {phone}" if base else f"{PHONE_MARK} {phone}"
+
+
+def write_ex_memos(wb, ex_memo):
+    """앱의 운동 고정 메모를 [운동목록] F열에 반영. 바뀐 개수를 반환."""
+    if not ex_memo:
+        return 0
+    ws = wb["운동목록"]
+    changed = 0
+    for row in range(2, ws.max_row + 1):
+        name = ws.cell(row, 1).value
+        if not name or name not in ex_memo:
+            continue
+        cell = ws.cell(row, 6)
+        new = _merge_ex_memo(cell.value, ex_memo[name])
+        if new != cell.value:
+            cell.value = new
+            changed += 1
+    # 목록에 없는 운동이면 맨 아래에 새로 추가
+    have = {ws.cell(r, 1).value for r in range(2, ws.max_row + 1)}
+    for name, memo in ex_memo.items():
+        if name in have or not memo.strip():
+            continue
+        row = ws.max_row + 1
+        while ws.cell(row - 1, 1).value in (None, ""):   # 빈 줄이면 위로 당김
+            row -= 1
+        ws.cell(row, 1, name)
+        ws.cell(row, 6, _merge_ex_memo(None, memo))
+        changed += 1
+    return changed
+
+
+def append_sessions(sessions, ex_memo=None):
+    """sessions: 앱 DB.sessions 형식. 반환: {"written": [id...], "rows": n, "memos": n, "skipped": [id...]}"""
     synced = load_synced()
     todo = [s for s in sessions
             if s.get("id") and s["id"] not in synced and not s.get("fromExcel") and s.get("entries")]
-    if not todo:
-        return {"written": [], "rows": 0, "skipped": [s.get("id") for s in sessions]}
+    if not todo and not ex_memo:
+        return {"written": [], "rows": 0, "memos": 0, "skipped": [s.get("id") for s in sessions]}
 
     wb = openpyxl.load_workbook(XLSX)
+    memos = write_ex_memos(wb, ex_memo)
+    if not todo and not memos:
+        return {"written": [], "rows": 0, "memos": 0, "skipped": [s.get("id") for s in sessions]}
     ws = wb["기록"]
     # 첫 빈 줄: A(날짜)와 C(운동)가 모두 비어 있는 첫 행
     row = FIRST_ROW
@@ -105,6 +150,7 @@ def append_sessions(sessions):
     n = 0
     for s in sorted(todo, key=lambda x: x["date"]):
         d = datetime.datetime.strptime(s["date"], "%Y-%m-%d")
+        day_memo = (s.get("memo") or "").strip().replace("\n", " ")
         for e in s["entries"]:
             if not e.get("sets") and not e.get("warm"):
                 continue
@@ -116,9 +162,12 @@ def append_sessions(sessions):
             for i, st in enumerate(e.get("sets", [])[:MAX_SETS]):
                 ws.cell(row, 7 + i * 2, st["kg"])
                 ws.cell(row, 8 + i * 2, st["reps"])
-            memo = (e.get("memo") or "").strip()
+            memo = (e.get("memo") or "").strip().replace("\n", " ")
             if len(e.get("sets", [])) > MAX_SETS:
                 memo = (memo + " " if memo else "") + f"[{len(e['sets'])}세트 중 6세트까지만 기록]"
+            if day_memo:   # 그날 메모는 첫 줄에만
+                memo = f"[오늘] {day_memo}" + (" · " + memo if memo else "")
+                day_memo = ""
             if memo:
                 ws.cell(row, 23, memo)
             row += 1
@@ -129,7 +178,8 @@ def append_sessions(sessions):
     fix_apply_attrs(XLSX)
     synced |= {s["id"] for s in todo}
     save_synced(synced)
-    return {"written": [s["id"] for s in todo], "rows": n, "skipped": [s["id"] for s in sessions if s["id"] in synced and s not in todo]}
+    return {"written": [s["id"] for s in todo], "rows": n, "memos": memos,
+            "skipped": [s["id"] for s in sessions if s["id"] in synced and s not in todo]}
 
 
 if __name__ == "__main__":
@@ -140,5 +190,5 @@ if __name__ == "__main__":
         print(__doc__); sys.exit(1)
     with open(args[0], encoding="utf-8") as f:
         data = json.load(f)
-    r = append_sessions(data.get("sessions", data if isinstance(data, list) else []))
-    print(f"{r['rows']}줄 추가 (세션 {len(r['written'])}개)")
+    r = append_sessions(data.get("sessions", data if isinstance(data, list) else []), data.get("exMemo"))
+    print(f"{r['rows']}줄 추가 (세션 {len(r['written'])}개), 운동 메모 {r['memos']}개")
