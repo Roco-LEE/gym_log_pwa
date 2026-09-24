@@ -237,7 +237,11 @@ async function keepAwake(on) {
     if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
   } catch (e) { }
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && cur) keepAwake(true); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (cur) keepAwake(true);
+  if (typeof fetchPlans === "function") fetchPlans();
+});
 function go(v) { view = v; render(); }
 function render() {
   if (view === "home") renderHome();
@@ -280,7 +284,6 @@ function renderHome() {
     <button style="flex:1" onclick="importJSON()">가져오기</button>
   </div>`);
   offlineStatus().then(t => { const el = $("#offl"); if (el) el.innerHTML = t; });
-  fetchPlans();
 }
 // 서비스워커가 살아 있고 index.html 이 캐시에 있으면 헬스장(오프라인)에서도 열림
 async function offlineStatus() {
@@ -587,6 +590,7 @@ function endRest() { clearInterval(restT); const d = $("#rest"); if (d) d.remove
 function fetchPlans() {
   return fetch("plan.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
     if (!j || !Array.isArray(j.plans)) return;
+    if (JSON.stringify(j.plans) === JSON.stringify(DB.plans || [])) return;
     DB.plans = j.plans; save();
     if (view === "home") renderHome();
   }).catch(() => { });
@@ -647,7 +651,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v17 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v18 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -737,6 +741,7 @@ window.addEventListener("popstate", () => {
 /* ===================== 시작 ===================== */
 migrateNames();
 render();
+fetchPlans();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
 </script>
 </body>
