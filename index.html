@@ -107,14 +107,14 @@
 <div id="toast" class="toast"></div>
 <script>
 /* ===================== 기본 데이터 (헬스일지.xlsx 에서 가져옴) ===================== */
-const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "레그프레스", "p": "하체", "t": "머신", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바이셉스 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
+const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 10, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 2.5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
 
 const ROUTINES = {
   "A": [
     {ex:"랫풀다운", sets:3, rest:90},
     {ex:"체스트프레스", sets:3, rest:90},
     {ex:"시티드로우", sets:3, rest:90},
-    {ex:"레그프레스", sets:3, rest:120},
+    {ex:"레그프레스(핀)", sets:3, rest:120},
     {ex:"숄더프레스", sets:2, rest:90},
   ],
   "B": [
@@ -151,6 +151,37 @@ if (!DB) {
       DB.sessions.push({ id: "seed-" + d, date: d, routine: "excel", start: null, end: null, entries: byDate[d], fromExcel: true });
     save(); render(); toast(`엑셀 기록 ${j.rows.length}줄 가져옴`);
   }).catch(() => { });
+}
+// 운동 이름 정리 (2026-09-24, 엑셀 [운동목록] 기준).
+// 9/18 이전에 '레그프레스'로 적은 건 엑셀에서 레그익스텐션으로 정정됐고,
+// 9/23 것은 Lexco 45도 원판 슬레드였음.
+const RENAMES = [
+  { from: "레그프레스", to: "레그익스텐션", before: "2026-09-19" },
+  { from: "레그프레스", to: "레그프레스(원판)" },
+  { from: "바이셉스 컬", to: "바벨 컬" },
+];
+// 날짜가 없는 것(운동 메모·증량 단위)은 가장 최근 의미로 바꿈
+function renameTo(name, date) {
+  const r = RENAMES.find(x => x.from === name && (!x.before || (date && date < x.before)));
+  return r ? r.to : null;
+}
+function migrateNames() {
+  if (DB.nameFix >= 1) { return; }
+  let n = 0;
+  for (const s of DB.sessions) for (const e of s.entries) {
+    const to = renameTo(e.ex, s.date);
+    if (to) { e.ex = to; n++; }
+  }
+  if (cur) for (const e of cur.entries) { const to = renameTo(e.ex, cur.date); if (to) { e.ex = to; n++; } }
+  for (const key of ["exMemo", "steps"]) {
+    if (!DB[key]) continue;
+    for (const name of Object.keys(DB[key])) {
+      const to = renameTo(name);
+      if (to && !DB[key][to]) { DB[key][to] = DB[key][name]; delete DB[key][name]; }
+    }
+  }
+  DB.nameFix = 1; save(); if (cur) saveCur();
+  if (n) setTimeout(() => toast(`운동 이름 ${n}건 정리됨`), 800);
 }
 function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
 function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
@@ -616,7 +647,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v16 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v17 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -704,6 +735,7 @@ window.addEventListener("popstate", () => {
 });
 
 /* ===================== 시작 ===================== */
+migrateNames();
 render();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
 </script>
