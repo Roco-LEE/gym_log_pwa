@@ -86,7 +86,7 @@
   .hist{font-size:14px; color:var(--dim); margin-top:8px; line-height:1.6;}
   .hist b{color:var(--fg); font-weight:600;}
   .pill{display:inline-block; padding:2px 8px; border-radius:10px; background:var(--card2); font-size:12px; color:var(--dim); margin-right:4px;}
-  input[type=text], select, textarea{font:inherit; color:inherit; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; width:100%; font-size:17px;}
+  input[type=text], input[type=number], input[type=date], select, textarea{font:inherit; color:inherit; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; width:100%; font-size:17px;}
   textarea{min-height:60px; user-select:text; -webkit-user-select:text;}
   h3{margin:18px 0 8px; font-size:15px; color:var(--dim); font-weight:700;}
   .modal{position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:40; display:flex; align-items:flex-end;}
@@ -248,6 +248,7 @@ function render() {
   else if (view === "session") renderSession();
   else if (view === "exercise") renderExercise();
   else if (view === "detail") renderDetail();
+  else if (view === "planEdit") renderPlanEdit();
 }
 
 /* ===================== 홈 ===================== */
@@ -270,6 +271,7 @@ function renderHome() {
       <button class="big mt" onclick="startSession('free')">하나씩 골라서 시작</button>
     </div>`}
     ${!cur ? openPlans().map(planCard).join("") : ""}
+    ${!cur ? `<button class="ghost" style="width:100%;border-style:dashed;margin-bottom:12px" onclick="newPlan()">📋 ＋ 계획 만들기</button>` : ""}
     ${unsyncedCount() || hasExMemo() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">${unsyncedCount() ? `엑셀로 안 보낸 기록 ${unsyncedCount()}일` : "엑셀로 메모 보내기"}</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
       <button class="acc" id="syncBtn" onclick="syncNow()">동기화</button></div>` : ""}
     <h3>지난 기록</h3>
@@ -306,6 +308,7 @@ function renderDetail() {
     ${s.memo ? `<div class="card"><div class="dim small">📝 오늘 메모</div><div style="margin-top:4px;white-space:pre-wrap">${esc(s.memo)}</div></div>` : ""}
     ${s.entries.map(e => `<div class="card"><div style="font-size:19px;font-weight:700">${esc(e.ex)}</div>${exMemo(e.ex) ? `<div class="pin">📌 ${esc(exMemo(e.ex))}</div>` : ""}
       <div class="hist"><b>${setsText(e)}</b>${e.memo ? "<br>" + esc(e.memo) : ""}</div></div>`).join("")}
+    <button class="acc" style="width:100%;margin-bottom:10px" onclick="newPlan('${s.id}')">📋 이 날 운동으로 계획 만들기</button>
     <div class="dim small">${s.start && s.end ? Math.round((s.end - s.start) / 60000) + "분 소요 · " : ""}${s.fromExcel ? "엑셀에서 가져옴" : (DB.synced || []).includes(s.id) ? "엑셀에 보냄 ✓" : "엑셀에 아직 안 보냄"}</div>
   </div>`);
 }
@@ -388,7 +391,7 @@ function finishSession() {
 }
 // 운동 고르기: 누르면 바로 그 운동으로 들어감 (자리 상황 봐가며 하나씩 고르게)
 function pickExercise(afterExercise) {
-  const inSession = new Set(cur.entries.map(e => e.ex));
+  const inSession = new Set((view === "planEdit" ? pe.items : cur.entries).map(e => e.ex));
   const recent = [], seen = new Set();
   for (const s of DB.sessions.slice().sort((a, b) => b.date < a.date ? -1 : 1)) for (const e of s.entries) if (!seen.has(e.ex)) { seen.add(e.ex); recent.push(e.ex); }
   const groups = { "최근 한 운동": recent.slice(0, 12).map(n => exInfo(n)) };
@@ -403,6 +406,7 @@ function pickExercise(afterExercise) {
 function addExercise(name) {
   if (!name) return;
   if (!DB.exercises.find(e => e.n === name)) { DB.exercises.push({ n: name, p: "기타", t: "", step: 2.5, rep: "" }); save(); }
+  if (view === "planEdit") { pe.items.push(planItemFromHistory(name)); closeModal(); return renderPlanEdit(); }
   cur.entries.push(makeEntry(name, 3, DB.settings.rest));
   saveCur(); closeModal(); openExercise(cur.entries.length - 1);
 }
@@ -598,9 +602,11 @@ function fetchPlans() {
 function donePlans() { return DB.donePlans || []; }
 // 오늘 이후(또는 오늘) 계획 중 아직 안 한 것, 날짜 빠른 순
 function openPlans() {
-  return (DB.plans || []).filter(p => !donePlans().includes(p.id) && p.date >= today()).sort((a, b) => a.date < b.date ? -1 : 1);
+  return allPlans().filter(p => !donePlans().includes(p.id) && p.date >= today()).sort((a, b) => a.date < b.date ? -1 : 1);
 }
-function planById(id) { return (DB.plans || []).find(p => p.id === id); }
+// PC plan.json 계획(DB.plans) + 폰에서 만든 계획(DB.myPlans)
+function allPlans() { return [...(DB.plans || []), ...(DB.myPlans || [])]; }
+function planById(id) { return allPlans().find(p => p.id === id); }
 function startPlan(id) {
   const p = planById(id); if (!p) return;
   cur = { id: "s-" + Date.now(), date: today(), routine: p.title || "계획", planId: p.id, start: Date.now(),
@@ -614,7 +620,85 @@ function planCard(p) {
     ${p.note ? `<div class="dim small mt">${esc(p.note)}</div>` : ""}
     <div class="hist">${p.items.map(it => `${esc(it.ex)} <b>${planTargetText(it)}</b>`).join("<br>")}</div>
     <button class="big acc mt" onclick="startPlan('${p.id}')">이 계획으로 시작 →</button>
+    ${p.id.startsWith("my-") ? `<div class="row mt" style="gap:8px"><button style="flex:1" onclick="editPlan('${p.id}')">수정</button><button style="flex:1;color:var(--bad)" onclick="deletePlan('${p.id}')">삭제</button></div>`
+      : `<div class="dim small mt" style="text-align:center">PC에서 받은 계획</div>`}
   </div>`;
+}
+
+/* ===================== 계획 만들기 (폰에서) ===================== */
+let pe = null;   // 편집 중인 계획
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function topSet(sets) { return sets.reduce((a, b) => b.kg > a.kg ? b : a); }
+// 지난번 기록(제일 무거운 세트 · 세트 수)을 기본값으로
+function planItemFromHistory(ex) {
+  const last = exHistory(ex)[0];
+  if (!last || !last.sets.length) return { ex, kg: null, reps: 10, sets: 3, note: "" };
+  const t = topSet(last.sets);
+  return { ex, kg: t.kg, reps: t.reps, sets: last.sets.length, note: "" };
+}
+function newPlan(fromSessionId) {
+  const s = fromSessionId && DB.sessions.find(x => x.id === fromSessionId);
+  pe = { id: "my-" + Date.now(), date: addDays(1), title: "", note: "", items: [] };
+  if (s) pe.items = s.entries.filter(e => e.sets.length).map(e => { const t = topSet(e.sets); return { ex: e.ex, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
+  go("planEdit");
+}
+function editPlan(id) { const p = (DB.myPlans || []).find(x => x.id === id); if (!p) return; pe = JSON.parse(JSON.stringify(p)); go("planEdit"); }
+function deletePlan(id) { if (!confirm("이 계획을 지울까요?")) return; DB.myPlans = (DB.myPlans || []).filter(p => p.id !== id); save(); renderHome(); }
+function renderPlanEdit() {
+  keepAwake(false);
+  const isEdit = (DB.myPlans || []).some(p => p.id === pe.id);
+  h(`
+  <div class="top"><button class="sm ghost" onclick="pe=null;go('home')">‹ 취소</button><div class="t">계획 ${isEdit ? "수정" : "만들기"}</div></div>
+  <div class="body">
+    <h3 style="margin-top:0">날짜</h3>
+    <div class="row" style="gap:6px">${[[0, "오늘"], [1, "내일"], [2, "모레"]].map(([n, l]) => `<button class="sm ${pe.date === addDays(n) ? "acc" : ""}" style="flex:1" onclick="pe.date='${addDays(n)}';renderPlanEdit()">${l}</button>`).join("")}
+      <input type="date" value="${pe.date}" style="flex:1.7;padding:8px" onchange="if(this.value){pe.date=this.value;renderPlanEdit()}"></div>
+    <h3>제목 · 메모 <span class="dim" style="font-weight:500">(선택)</span></h3>
+    <input type="text" placeholder="${md(pe.date)} 계획" value="${esc(pe.title)}" oninput="pe.title=this.value">
+    <textarea class="mt" placeholder="오늘의 주의점 (예: 허리 조심, 무게보다 자세)" oninput="pe.note=this.value">${esc(pe.note)}</textarea>
+    <h3>운동 <span class="dim" style="font-weight:500">· 누르면 수정, 꾹 누르면 빼기</span></h3>
+    <div class="list">${pe.items.map((it, i) => `<button data-hold="holdRemovePlanItem:${i}" onclick="editPlanItem(${i})">
+      <span class="dim" style="width:18px">${i + 1}</span>
+      <span class="n">${esc(it.ex)}<div class="dim small" style="font-weight:500">🎯 ${planTargetText(it)}${it.note ? " · " + esc(it.note) : ""}</div></span><span class="dim">›</span></button>`).join("")}</div>
+    <button class="ghost" style="width:100%;border-style:dashed" onclick="pickExercise()">＋ 운동 추가</button>
+  </div>
+  <div class="foot"><button class="big ok" onclick="savePlan()" ${pe.items.length ? "" : "disabled"}>계획 저장</button></div>`);
+}
+function savePlan() {
+  if (!pe || !pe.items.length) return;
+  pe.title = pe.title.trim(); pe.note = pe.note.trim();
+  DB.myPlans = (DB.myPlans || []).filter(p => p.id !== pe.id); DB.myPlans.push(pe);
+  DB.donePlans = donePlans().filter(id => id !== pe.id);   // 다시 저장하면 또 할 수 있게
+  save(); pe = null; toast("계획 저장됨"); go("home");
+}
+function editPlanItem(i) {
+  const it = pe.items[i], last = exHistory(it.ex)[0];
+  openModal(`
+    <div class="row" style="gap:8px;align-items:flex-end">
+      <div style="flex:1.2"><div class="dim small">무게 kg</div><input type="number" inputmode="decimal" id="piKg" placeholder="지난번" value="${it.kg ?? ""}"></div>
+      <div style="flex:1"><div class="dim small">횟수</div><input type="number" inputmode="numeric" id="piReps" value="${it.reps}"></div>
+      <div style="flex:1"><div class="dim small">세트</div><input type="number" inputmode="numeric" id="piSets" value="${it.sets}"></div>
+    </div>
+    <div class="dim small" style="margin-top:6px">무게를 비워두면 그날 지난번 무게로 채워짐</div>
+    <h3>메모</h3><input type="text" id="piNote" placeholder="예) 얕게, 15회 되면 다음엔 +2.5" value="${esc(it.note || "")}">
+    <div class="row mt"><button style="flex:1" ${i === 0 ? "disabled" : ""} onclick="movePlanItem(${i},-1)">↑ 위로</button><button style="flex:1" ${i === pe.items.length - 1 ? "disabled" : ""} onclick="movePlanItem(${i},1)">↓ 아래로</button></div>
+    <div class="row mt"><button style="flex:1;color:var(--bad)" onclick="pe.items.splice(${i},1);closeModal();renderPlanEdit()">이 운동 빼기</button></div>`,
+    { head: `<div style="font-size:18px;font-weight:700">${esc(it.ex)}</div><div class="dim small">${last ? "지난번 " + md(last.date) + " " + setsText(last) : "첫 기록"}</div>`,
+      foot: `<button class="acc" style="flex:2" onclick="savePlanItem(${i})">확인</button>` });
+}
+function savePlanItem(i) {
+  const it = pe.items[i];
+  const kg = parseFloat($("#piKg").value), reps = parseInt($("#piReps").value), sets = parseInt($("#piSets").value);
+  it.kg = isNaN(kg) ? null : Math.max(0, kg);
+  if (!isNaN(reps) && reps !== it.reps) { it.reps = Math.max(1, reps); delete it.repsText; }
+  if (!isNaN(sets)) it.sets = Math.max(1, sets);
+  it.note = $("#piNote").value.trim();
+  closeModal(); renderPlanEdit();
+}
+function movePlanItem(i, d) { const [x] = pe.items.splice(i, 1); pe.items.splice(i + d, 0, x); closeModal(); renderPlanEdit(); }
+function holdRemovePlanItem(i) {
+  i = +i; if (!confirm(`"${pe.items[i].ex}" 을(를) 계획에서 뺄까요?`)) return;
+  pe.items.splice(i, 1); renderPlanEdit();
 }
 function planTargetText(it) {
   const w = it.kg == null ? "" : fmt(it.kg) + "kg × ";
@@ -651,7 +735,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v18 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v19 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -734,6 +818,7 @@ window.addEventListener("popstate", () => {
   if ($("#modal")) closeModal();
   else if ($("#rest")) endRest();
   else if (view === "exercise") go("session");
+  else if (view === "planEdit") { pe = null; go("home"); }
   else if (view === "session" || view === "detail") go("home");
   window.history.pushState({ guard: 1 }, "");
 });
