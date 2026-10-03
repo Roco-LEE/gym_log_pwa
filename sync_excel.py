@@ -8,6 +8,7 @@ serve.py 가 /api/sync 로 받아서 호출하고, 앱에서 내보낸 JSON 파�
 - 한 세션의 운동 하나 = [기록] 한 줄. A날짜 C운동 E,F워밍업 G~R 1~6세트 W메모 만 쓰고
   나머지(요일·부위·볼륨·1RM 등)는 시트에 이미 깔린 수식이 계산.
 - 그날 전체 메모는 그 세션 첫 줄 W열에 "[오늘] ..." 로 들어감.
+- 운동 시작·종료 시각은 그 세션 첫 줄 AI·AJ 열에 (AK 운동(분)은 시트 수식이 계산).
 - 앱에서 운동에 붙여둔 고정 메모(머신 번호 등)는 [운동목록] F열 뒤에 "[폰] ..." 로 붙임.
   원래 적혀 있던 내용은 건드리지 않고, 다시 동기화하면 [폰] 뒤쪽만 갱신됨.
 - 같은 세션을 두 번 넣지 않도록 넣은 id 를 synced.json 에 기록.
@@ -23,6 +24,25 @@ BACKUP_DIR = os.path.join(HERE, "..", "백업")
 FIRST_ROW = 3       # 헤더 2줄
 MAX_SETS = 6
 PHONE_MARK = "[폰]"   # [운동목록] 메모에서 앱이 관리하는 구간의 시작 표시
+COL_START, COL_END, COL_MIN = 35, 36, 37   # [기록] AI 시작 · AJ 종료 · AK 운동(분)
+
+
+def to_time(ms):
+    """앱의 밀리초 타임스탬프 → 이 PC 시간대의 시각(엑셀 hh:mm)"""
+    if not ms:
+        return None
+    return datetime.datetime.fromtimestamp(ms / 1000).time().replace(second=0, microsecond=0)
+
+
+def write_times(ws, row, s):
+    start, end = to_time(s.get("start")), to_time(s.get("end"))
+    if not start or not end:
+        return
+    ws.cell(row, COL_START, start).number_format = "hh:mm"
+    ws.cell(row, COL_END, end).number_format = "hh:mm"
+    if ws.cell(row, COL_MIN).value in (None, ""):   # 옛 양식 파일이면 수식이 없을 수 있음
+        ws.cell(row, COL_MIN, f'=IF(OR($AI{row}="",$AJ{row}=""),"",ROUND(MOD($AJ{row}-$AI{row},1)*1440,0))')
+        ws.cell(row, COL_MIN).number_format = "0"
 
 
 def use_test_file():
@@ -151,6 +171,7 @@ def append_sessions(sessions, ex_memo=None):
     for s in sorted(todo, key=lambda x: x["date"]):
         d = datetime.datetime.strptime(s["date"], "%Y-%m-%d")
         day_memo = (s.get("memo") or "").strip().replace("\n", " ")
+        first_row = True
         for e in s["entries"]:
             if not e.get("sets") and not e.get("warm"):
                 continue
@@ -170,6 +191,9 @@ def append_sessions(sessions, ex_memo=None):
                 day_memo = ""
             if memo:
                 ws.cell(row, 23, memo)
+            if first_row:   # 운동 시간은 그날 첫 줄에만
+                write_times(ws, row, s)
+                first_row = False
             row += 1
             n += 1
 
