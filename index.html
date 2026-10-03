@@ -70,6 +70,10 @@
   .stepper .bt button{flex:1; font-size:30px; height:52px; padding:0; border-radius:12px; line-height:1;}
   .chips{display:flex; gap:5px;}
   .chips button{flex:1; min-width:0; padding:0; height:30px; font-size:12px; border-radius:15px; font-variant-numeric:tabular-nums;}
+  .nstep{display:flex; gap:6px; align-items:center; margin-top:4px;}
+  .nstep button{flex:0 0 44px; height:46px; padding:0; font-size:24px; border-radius:12px; line-height:1;}
+  .nstep input{flex:1; min-width:0; text-align:center; font-size:20px; font-weight:700; padding:10px 4px; font-variant-numeric:tabular-nums;}
+  .fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .stepper .val input{width:100%; font-size:36px; font-weight:800; text-align:center; padding:2px; border-radius:10px; border:2px solid var(--acc); background:var(--card2); color:var(--fg); font-variant-numeric:tabular-nums;}
   .chips button.on{background:var(--acc); border-color:var(--acc); color:#fff;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
@@ -345,7 +349,9 @@ function row(type, kg, reps) { return { type, kg, reps, done: false, pre: { kg, 
 function makeEntry(ex, plannedSets, rest, plan) {
   const hs = exHistory(ex), last = hs[0];
   const rows = [];
-  if (last && last.warm) rows.push(row("W", last.warm.kg, last.warm.reps));
+  if (plan && plan.warm === false) { /* 계획에서 워밍업 없음으로 정함 */ }
+  else if (plan && plan.warm) rows.push(row("W", plan.warm.kg, plan.warm.reps));
+  else if (last && last.warm) rows.push(row("W", last.warm.kg, last.warm.reps));
   else if (!last && exInfo(ex).t !== "보조머신" && exInfo(ex).t !== "맨몸") rows.push(row("W", 0, 10));
   const n = Math.max(plannedSets || 0, plan ? 0 : (last ? last.sets.length : 0), 1);
   for (let i = 0; i < n; i++) {
@@ -647,12 +653,12 @@ function planItemFromHistory(ex) {
   const last = exHistory(ex)[0];
   if (!last || !last.sets.length) return { ex, kg: null, reps: 10, sets: 3, note: "" };
   const t = topSet(last.sets);
-  return { ex, kg: t.kg, reps: t.reps, sets: last.sets.length, note: "" };
+  return { ex, warm: last.warm ? { ...last.warm } : undefined, kg: t.kg, reps: t.reps, sets: last.sets.length, note: "" };
 }
 function newPlan(fromSessionId) {
   const s = fromSessionId && DB.sessions.find(x => x.id === fromSessionId);
   pe = { id: "my-" + Date.now(), date: addDays(1), title: "", note: "", items: [] };
-  if (s) pe.items = s.entries.filter(e => e.sets.length).map(e => { const t = topSet(e.sets); return { ex: e.ex, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
+  if (s) pe.items = s.entries.filter(e => e.sets.length).map(e => { const t = topSet(e.sets); return { ex: e.ex, warm: e.warm ? { ...e.warm } : undefined, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
   go("planEdit");
 }
 function editPlan(id) { const p = (DB.myPlans || []).find(x => x.id === id); if (!p) return; pe = JSON.parse(JSON.stringify(p)); go("planEdit"); }
@@ -684,20 +690,44 @@ function savePlan() {
   DB.donePlans = donePlans().filter(id => id !== pe.id);   // 다시 저장하면 또 할 수 있게
   save(); pe = null; toast("계획 저장됨"); go("home");
 }
+// 숫자 칸: 직접 타이핑도 되고 −/＋로도 바꿈
+function numStep(id, val, step, opt = {}) {
+  return `<div class="nstep"><button type="button" onclick="bump('${id}',${-step},${opt.min ?? 0})">−</button>
+    <input type="number" inputmode="${opt.int ? "numeric" : "decimal"}" id="${id}" value="${val ?? ""}" placeholder="${opt.ph || ""}">
+    <button type="button" onclick="bump('${id}',${step},${opt.min ?? 0})">＋</button></div>`;
+}
+function bump(id, d, min) {
+  const inp = $("#" + id);
+  const base = inp.value === "" ? parseFloat(inp.dataset.base || inp.placeholder) || 0 : parseFloat(inp.value) || 0;
+  inp.value = Math.max(min, Math.round((base + d) * 100) / 100);
+}
 function editPlanItem(i) {
-  const it = pe.items[i], last = exHistory(it.ex)[0];
+  const it = pe.items[i], last = exHistory(it.ex)[0], info = exInfo(it.ex), step = curStep(it.ex);
+  // 워밍업: 계획에 정해져 있으면 그 값, 아니면 지난번 워밍업, 그것도 없으면 꺼둠
+  const w = it.warm || (it.warm === undefined && last && last.warm) || null;
+  const lastKg = last && last.sets.length ? topSet(last.sets).kg : "";
   openModal(`
-    <div class="row" style="gap:8px;align-items:flex-end">
-      <div style="flex:1.2"><div class="dim small">무게 kg</div><input type="number" inputmode="decimal" id="piKg" placeholder="지난번" value="${it.kg ?? ""}"></div>
-      <div style="flex:1"><div class="dim small">횟수</div><input type="number" inputmode="numeric" id="piReps" value="${it.reps}"></div>
-      <div style="flex:1"><div class="dim small">세트</div><input type="number" inputmode="numeric" id="piSets" value="${it.sets}"></div>
+    <div class="row" style="margin-top:4px"><div style="flex:1;font-weight:700">워밍업</div>
+      <button type="button" class="sm ${w ? "acc" : ""}" id="wToggle" onclick="toggleWarm()">${w ? "있음" : "없음"}</button></div>
+    <div id="warmBox" class="fgrid mt" style="${w ? "" : "display:none"}">
+      <div><div class="dim small">무게 kg</div>${numStep("pwKg", w ? fmt(w.kg) : "", step)}</div>
+      <div><div class="dim small">횟수</div>${numStep("pwReps", w ? w.reps : 10, 1, { int: 1, min: 1 })}</div>
     </div>
-    <div class="dim small" style="margin-top:6px">무게를 비워두면 그날 지난번 무게로 채워짐</div>
-    <h3>메모</h3><input type="text" id="piNote" placeholder="예) 얕게, 15회 되면 다음엔 +2.5" value="${esc(it.note || "")}">
+    <h3>본세트 <span class="dim" style="font-weight:500">· ±${fmt(step)}kg</span></h3>
+    <div><div class="dim small">무게 kg <span style="font-weight:400">(비워두면 그날 지난번 무게)</span></div>${numStep("piKg", it.kg == null ? "" : fmt(it.kg), step, { ph: lastKg })}</div>
+    <div class="fgrid mt">
+      <div><div class="dim small">횟수</div>${numStep("piReps", it.reps, 1, { int: 1, min: 1 })}</div>
+      <div><div class="dim small">세트</div>${numStep("piSets", it.sets, 1, { int: 1, min: 1 })}</div>
+    </div>
+    <h3>메모</h3><input type="text" id="piNote" placeholder="예) 얕게, 15회 되면 다음엔 +${fmt(step)}" value="${esc(it.note || "")}">
     <div class="row mt"><button style="flex:1" ${i === 0 ? "disabled" : ""} onclick="movePlanItem(${i},-1)">↑ 위로</button><button style="flex:1" ${i === pe.items.length - 1 ? "disabled" : ""} onclick="movePlanItem(${i},1)">↓ 아래로</button></div>
     <div class="row mt"><button style="flex:1;color:var(--bad)" onclick="pe.items.splice(${i},1);closeModal();renderPlanEdit()">이 운동 빼기</button></div>`,
-    { head: `<div style="font-size:18px;font-weight:700">${esc(it.ex)}</div><div class="dim small">${last ? "지난번 " + md(last.date) + " " + setsText(last) : "첫 기록"}</div>`,
+    { head: `<div style="font-size:18px;font-weight:700">${esc(it.ex)}</div><div class="dim small">${last ? "지난번 " + md(last.date) + " " + setsText(last) : "첫 기록"}${info.rep ? " · 목표 " + info.rep + "회" : ""}</div>`,
       foot: `<button class="acc" style="flex:2" onclick="savePlanItem(${i})">확인</button>` });
+}
+function toggleWarm() {
+  const box = $("#warmBox"), btn = $("#wToggle"), on = box.style.display === "none";
+  box.style.display = on ? "" : "none"; btn.textContent = on ? "있음" : "없음"; btn.classList.toggle("acc", on);
 }
 function savePlanItem(i) {
   const it = pe.items[i];
@@ -705,6 +735,8 @@ function savePlanItem(i) {
   it.kg = isNaN(kg) ? null : Math.max(0, kg);
   if (!isNaN(reps) && reps !== it.reps) { it.reps = Math.max(1, reps); delete it.repsText; }
   if (!isNaN(sets)) it.sets = Math.max(1, sets);
+  if ($("#warmBox").style.display === "none") it.warm = false;
+  else it.warm = { kg: Math.max(0, parseFloat($("#pwKg").value) || 0), reps: Math.max(1, parseInt($("#pwReps").value) || 10) };
   it.note = $("#piNote").value.trim();
   closeModal(); renderPlanEdit();
 }
@@ -714,8 +746,9 @@ function holdRemovePlanItem(i) {
   pe.items.splice(i, 1); renderPlanEdit();
 }
 function planTargetText(it) {
+  const warm = it.warm ? `W ${fmt(it.warm.kg)}×${it.warm.reps} · ` : "";
   const w = it.kg == null ? "" : fmt(it.kg) + "kg × ";
-  return `${w}${it.repsText || it.reps}회${it.sets ? " · " + it.sets + "세트" : ""}`;
+  return `${warm}${w}${it.repsText || it.reps}회${it.sets ? " · " + it.sets + "세트" : ""}`;
 }
 
 /* ===================== PC 엑셀 동기화 ===================== */
@@ -748,7 +781,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v21 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v22 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
