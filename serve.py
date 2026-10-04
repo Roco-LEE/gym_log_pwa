@@ -16,6 +16,30 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
+    def send_json(self, code, out):
+        data = json.dumps(out, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        if self.path.split("?")[0] != "/api/excel":
+            return super().do_GET()
+        # 테스트 모드에선 내려주지 않음 (옛 테스트 파일로 폰 기록을 덮으면 안 되니까)
+        if TEST:
+            return self.send_json(404, {"error": "테스트 모드에서는 엑셀을 내려주지 않아요"})
+        try:
+            out = sync_excel.read_excel()
+            print(f"엑셀 → 폰: 운동 {len(out['exercises'])}개, 기록 {len(out['records'])}줄")
+            self.send_json(200, out)
+        except PermissionError:
+            self.send_json(409, {"error": "엑셀 파일이 열려 있어요"})
+        except Exception as e:
+            traceback.print_exc()
+            self.send_json(500, {"error": str(e)})
+
     def do_POST(self):
         if self.path != "/api/sync":
             return self.send_error(404)

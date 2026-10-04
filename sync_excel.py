@@ -149,6 +149,51 @@ def write_ex_memos(wb, ex_memo):
     return changed
 
 
+def read_excel():
+    """앱이 받아갈 엑셀 내용: [운동목록] 전체 + [기록] 전체(무게·횟수·메모·시각).
+    다른 곳(다른 세션·손)에서 엑셀을 고쳐도 폰이 이걸 받아서 맞춘다."""
+    wb = openpyxl.load_workbook(XLSX, read_only=True)
+    exercises = []
+    for r in wb["운동목록"].iter_rows(min_row=2, max_col=5, values_only=True):
+        if r[0]:
+            exercises.append({"n": r[0], "p": r[1] or "", "t": r[2] or "", "step": r[3] if r[3] is not None else 2.5, "rep": r[4] or ""})
+
+    def num(v):
+        if v is None or v == "":
+            return None
+        try:
+            return float(v) if float(v) % 1 else int(float(v))
+        except (TypeError, ValueError):
+            return None
+
+    def ms(d, t):
+        if not isinstance(t, datetime.time):
+            return None
+        return int(datetime.datetime.combine(d, t).timestamp() * 1000)
+
+    records = []
+    for r in wb["기록"].iter_rows(min_row=FIRST_ROW, max_col=COL_END, values_only=True):
+        d, ex = r[0], r[2]
+        if isinstance(d, datetime.datetime):
+            d = d.date()
+        if not isinstance(d, datetime.date) or not ex:
+            continue
+        wk, wr = num(r[4]), num(r[5])
+        sets = []
+        for i in range(MAX_SETS):
+            kg, reps = num(r[6 + 2 * i]), num(r[7 + 2 * i])
+            if kg is not None and reps is not None:
+                sets.append({"kg": kg, "reps": reps})
+        start, end = ms(d, r[COL_START - 1]), ms(d, r[COL_END - 1])
+        if start and end and end < start:      # 자정 넘김
+            end += 86400000
+        records.append({"date": d.isoformat(), "ex": str(ex), "memo": r[22] or "",
+                        "warm": {"kg": wk, "reps": wr} if wk is not None and wr is not None else None,
+                        "sets": sets, "start": start, "end": end})
+    wb.close()
+    return {"exercises": exercises, "records": records}
+
+
 def append_sessions(sessions, ex_memo=None):
     """sessions: 앱 DB.sessions 형식. 반환: {"written": [id...], "rows": n, "memos": n, "skipped": [id...]}"""
     synced = load_synced()

@@ -158,7 +158,7 @@
 <div id="toast" class="toast"></div>
 <script>
 /* ===================== 기본 데이터 (헬스일지.xlsx 에서 가져옴) ===================== */
-const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
+const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "맨몸", "step": 2.5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
 
 
 
@@ -226,9 +226,10 @@ function migrateNames() {
 // 목록은 설치할 때 폰에 한 번 복사되기 때문에, 코드만 고치면 폰엔 옛 목록이 남아 있었음.
 // 직접 추가한 운동은 그대로 두고, 이름이 바뀐 옛 운동만 뺌.
 function syncExerciseList() {
-  const defaults = new Set(DEFAULT_EXERCISES.map(e => e.n));
+  const base = DB.xlExercises && DB.xlExercises.length ? DB.xlExercises : DEFAULT_EXERCISES;
+  const defaults = new Set(base.map(e => e.n));
   const custom = (DB.exercises || []).filter(e => !defaults.has(e.n) && !renameTo(e.n));
-  const next = DEFAULT_EXERCISES.map(e => ({ ...e })).concat(custom);
+  const next = base.map(e => ({ ...e })).concat(custom);
   if (JSON.stringify(next) !== JSON.stringify(DB.exercises)) { DB.exercises = next; save(); }
 }
 function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
@@ -290,7 +291,7 @@ async function keepAwake(on) {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   if (cur) keepAwake(true);
-  if (typeof fetchPlans === "function") fetchPlans();
+  if (typeof fetchPlans === "function") { fetchPlans(); pullExcel(); }
 });
 function go(v) { view = v; render(); }
 function render() {
@@ -871,6 +872,47 @@ function planTargetText(it) {
   return `${warm}${w}${it.repsText || it.reps}회${it.sets ? " · " + it.sets + "세트" : ""}`;
 }
 
+/* ===================== 엑셀 → 폰 (받아오기) ===================== */
+// PC 엑셀이 기준. 다른 곳에서 엑셀을 고쳐도(이름 정정·메모·유산소로 옮김 등) 폰이 따라가게 함.
+//  · 운동목록은 엑셀 [운동목록] 그대로 (폰에서 직접 추가한 운동은 유지)
+//  · 이미 엑셀로 보낸 기록·엑셀에서 온 기록은 엑셀 [기록] 내용으로 바꿈
+//  · 아직 안 보낸 기록은 건드리지 않음
+function pullExcel() {
+  return fetch("api/excel", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !Array.isArray(j.records) || !j.records.length) return;
+    if (applyExcel(j) && (view === "home" || view === "detail")) render();
+  }).catch(() => { });
+}
+function applyExcel(j) {
+  const before = JSON.stringify([DB.sessions, DB.exercises]);
+  if (Array.isArray(j.exercises) && j.exercises.length) { DB.xlExercises = j.exercises; syncExerciseList(); }
+  const byDate = {};
+  for (const r of j.records) (byDate[r.date] = byDate[r.date] || []).push(r);
+  const synced = new Set(DB.synced || []);
+  const isOld = s => s.fromExcel || synced.has(s.id);
+  const prevByDate = {};
+  for (const s of DB.sessions) if (isOld(s) && !prevByDate[s.date]) prevByDate[s.date] = s;
+  const next = DB.sessions.filter(s => !isOld(s));           // 아직 안 보낸 건 그대로
+  for (const d of Object.keys(byDate).sort()) {
+    const rows = byDate[d], prev = prevByDate[d];
+    const t = rows.find(r => r.start && r.end);
+    // 폰에서 적은 '오늘 메모'는 엑셀 첫 줄에 [오늘] … 로 붙어 있으니 다시 떼어냄
+    const dayMemo = prev ? prev.memo || "" : "";
+    const tag = dayMemo ? "[오늘] " + dayMemo.replace(/\n/g, " ") : "";
+    next.push({
+      id: prev ? prev.id : "xl-" + d, date: d, routine: prev ? prev.routine : "excel",
+      start: t ? t.start : prev ? prev.start : null, end: t ? t.end : prev ? prev.end : null,
+      memo: dayMemo, fromExcel: prev ? !!prev.fromExcel : true,   // 엑셀에서만 온 기록은 계속 '엑셀 것'으로 (다시 보내지 않게)
+      entries: rows.map(r => ({ ex: r.ex, warm: r.warm, sets: r.sets,
+        memo: tag && r.memo.startsWith(tag) ? r.memo.slice(tag.length).replace(/^ · /, "") : r.memo })),
+    });
+  }
+  DB.sessions = next;
+  const changed = JSON.stringify([DB.sessions, DB.exercises]) !== before;
+  if (changed) save();
+  return changed;
+}
+
 /* ===================== PC 엑셀 동기화 ===================== */
 function unsynced() { return DB.sessions.filter(s => !s.fromExcel && !(DB.synced || []).includes(s.id)); }
 function unsyncedCount() { return unsynced().length; }
@@ -882,7 +924,7 @@ async function syncNow() {
     const r = await fetch("api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions: unsynced(), exMemo: DB.exMemo || {} }), signal: ctl.signal });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
-    if (!j.test) { DB.synced = [...new Set([...(DB.synced || []), ...(j.written || [])])]; save(); }
+    if (!j.test) { DB.synced = [...new Set([...(DB.synced || []), ...(j.written || [])])]; save(); await pullExcel(); }
     toast(j.rows ? `${j.target || "엑셀"}에 ${j.rows}줄 추가됨${j.test ? " (테스트)" : ""}` : "새로 보낼 게 없음"); renderHome();
     if (j.test) { const b = $("#syncBtn"); if (b) { b.disabled = false; b.textContent = "동기화"; } }
   } catch (e) {
@@ -901,7 +943,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v27 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v28 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -994,6 +1036,7 @@ migrateNames();
 syncExerciseList();
 render();
 fetchPlans();
+pullExcel();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
 </script>
 </body>
