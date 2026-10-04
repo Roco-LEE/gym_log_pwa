@@ -100,6 +100,10 @@
   .restbar .lab{font-size:14px; color:var(--dim); font-weight:700;}
   .restbar .n{flex:1; font-family:var(--num); font-size:46px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.05;}
   .restbar button{min-width:52px; height:48px; padding:0 8px; font-size:15px; border-radius:12px;}
+  .restbar.soon{border-color:var(--warn); animation:blink 1s steps(2, jump-none) infinite;}
+  .restbar.soon .n{color:var(--warn);}
+  @keyframes blink{0%{background:rgba(255,179,71,.28);}100%{background:var(--card2);}}
+  @media (prefers-reduced-motion: reduce){ .restbar.soon{animation:none; background:rgba(255,179,71,.2);} }
   .restbar.over{background:rgba(255,179,71,.16); border-color:var(--warn);}
   .restbar.over .n, .restbar.over .lab{color:var(--warn);}
   .restbar.over .prog{background:var(--warn);}
@@ -128,7 +132,7 @@
 <div id="toast" class="toast"></div>
 <script>
 /* ===================== 기본 데이터 (헬스일지.xlsx 에서 가져옴) ===================== */
-const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 10, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 2.5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "맨몸", "step": 2.5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
+const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 7.5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
 
 
 
@@ -516,7 +520,7 @@ function renderExercise() {
   tickRest();
 }
 // 원판을 양쪽에 끼우는 운동: 기록한 무게에서 바 무게를 빼고 반으로 나눠 한쪽 원판 조합을 보여줌.
-// 레그프레스(원판)은 원판 무게만 기록하므로 바 0. 바벨 컬은 바 무게가 정해지지 않아 뺐음.
+// 레그프레스(원판)은 원판 무게만 기록하므로 바 0. 바벨 컬은 고정 바벨(10·15·20…)이라 대상 아님.
 const PLATE_EX = { "레그프레스(원판)": 0, "벤치프레스": 20, "바벨 스쿼트": 20, "데드리프트": 20, "루마니안 데드리프트": 20 };
 const PLATES = [20, 15, 10, 5, 2.5, 1.25];
 function plateText(ex, kg) {
@@ -654,6 +658,7 @@ function tickRest() {
     if (!bar) return;
     n.textContent = left > 0 ? mmss(left) : "+" + mmss(-left);
     bar.classList.toggle("over", left <= 0);
+    bar.classList.toggle("soon", left > 0 && left <= 10);   // 마지막 10초는 깜빡임
     pr.style.width = Math.max(0, Math.min(100, (restEnd - Date.now()) / restTotal * 100)) + "%";
   };
   f(); restT = setInterval(f, 250);
@@ -848,7 +853,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v25 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v26 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
