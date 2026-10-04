@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <title>헬스일지</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,8 +11,11 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
-    --bg:#0b0f14; --card:#151b23; --card2:#1c242e; --line:#2a3440;
-    --fg:#f2f5f8; --dim:#8a96a3; --acc:#4f9cff; --ok:#3ddc84; --warn:#ffb347; --bad:#ff5c5c;
+    /* 완전 검정 바탕(S9 AMOLED 배터리 절약) + 원판 주황 포인트. 초록은 '완료', 노랑은 '메모·경고' */
+    --bg:#000; --card:#121212; --card2:#1c1c1c; --line:#2b2b2b;
+    --fg:#f5f5f5; --dim:#9a9a9a; --acc:#ff7a1a; --on-acc:#1a0b00; --ok:#3ddc84; --warn:#ffd23f; --bad:#ff5c5c;
+    --acc-tint:rgba(255,122,26,.12); --acc-line:rgba(255,122,26,.45);
+    --warn-tint:rgba(255,210,63,.12); --warn-line:rgba(255,210,63,.35); --warn-flash:rgba(255,210,63,.30);
     --num:"Roboto Condensed", "sans-serif-condensed", "Arial Narrow", sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
@@ -29,14 +32,13 @@
   button:active{filter:brightness(1.3);}
   button.big{width:100%; padding:20px; font-size:22px; border-radius:18px;}
   .row > button.big{min-width:0; white-space:normal; font-size:18px; padding:16px 8px; line-height:1.25;}
-  button.acc{background:var(--acc); border-color:var(--acc); color:#fff;}
-  button.ok{background:var(--ok); border-color:var(--ok); color:#062;}
+  button.acc, button.ok{background:var(--acc); border-color:var(--acc); color:var(--on-acc);}
   button.warn{background:var(--warn); border-color:var(--warn); color:#321;}
   button.ghost{background:transparent;}
   button.sm{padding:8px 12px; font-size:14px; border-radius:10px;}
   button:disabled{opacity:.4;}
   .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
-  .card.today{border-color:rgba(79,156,255,.55);}
+  .card.today{border-color:var(--acc-line);}
   .card .row:empty{display:none;}
   .row{display:flex; align-items:center; gap:10px;}
   .dim{color:var(--dim);} .small{font-size:13px;} .mt{margin-top:10px;}
@@ -60,10 +62,10 @@
   .info .pin, .info .plan{margin-top:6px;}
   .info .last{margin-top:6px; font-size:14px;}
   .last{margin-top:6px; font-size:15px; color:var(--dim);}
-  .plan{margin-top:8px; font-size:15px; color:var(--acc); background:rgba(79,156,255,.12); border:1px solid rgba(79,156,255,.35); border-radius:12px; padding:8px 10px;}
+  .plan{margin-top:8px; font-size:15px; color:var(--acc); background:var(--acc-tint); border:1px solid var(--acc-line); border-radius:12px; padding:8px 10px;}
   .plan b{color:var(--fg); font-weight:700;}
   .plan .pnote{color:var(--dim); font-size:13px; margin-top:3px; line-height:1.4;}
-  .pin{margin-top:6px; font-size:14px; color:var(--warn); background:rgba(255,179,71,.1); border:1px solid rgba(255,179,71,.3); border-radius:10px; padding:6px 9px; line-height:1.4; white-space:pre-wrap;}
+  .pin{margin-top:6px; font-size:14px; color:var(--warn); background:var(--warn-tint); border:1px solid var(--warn-line); border-radius:10px; padding:6px 9px; line-height:1.4; white-space:pre-wrap;}
   .last b{color:var(--fg); font-weight:600;}
   .sets{margin-top:12px;}
   .set{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:14px; border:2px solid transparent; background:var(--card); margin-bottom:8px;}
@@ -92,7 +94,7 @@
   .nstep input{flex:1; min-width:0; text-align:center; font-family:var(--num); font-size:24px; font-weight:700; padding:8px 4px; font-variant-numeric:tabular-nums;}
   .fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
-  button.pick.on{background:var(--acc); border-color:var(--acc); color:#fff;}
+  button.pick.on{background:var(--acc); border-color:var(--acc); color:var(--on-acc);}
   button.pick.in{opacity:.5;}
   button.sm.ok{font-size:14px;}
   .restbar{display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:6px 6px 6px 14px; border-radius:16px; background:var(--card2); border:1px solid var(--line); position:relative; overflow:hidden;}
@@ -102,11 +104,35 @@
   .restbar button{min-width:52px; height:48px; padding:0 8px; font-size:15px; border-radius:12px;}
   .restbar.soon{border-color:var(--warn); animation:blink 1s steps(2, jump-none) infinite;}
   .restbar.soon .n{color:var(--warn);}
-  @keyframes blink{0%{background:rgba(255,179,71,.28);}100%{background:var(--card2);}}
-  @media (prefers-reduced-motion: reduce){ .restbar.soon{animation:none; background:rgba(255,179,71,.2);} }
-  .restbar.over{background:rgba(255,179,71,.16); border-color:var(--warn);}
+  @keyframes blink{0%{background:var(--warn-flash);}100%{background:var(--card2);}}
+  @media (prefers-reduced-motion: reduce){ .restbar.soon{animation:none; background:var(--warn-tint);} }
+  .restbar.over{background:var(--warn-tint); border-color:var(--warn);}
   .restbar.over .n, .restbar.over .lab{color:var(--warn);}
   .restbar.over .prog{background:var(--warn);}
+  .restbar .n, .restbar .lab{cursor:pointer;}
+  /* 세트 끝나면 뜨는 큰 휴식 화면. 벤치에 폰을 놓고도 읽히게 크게, 다음 세트는 여기서 바로 고침 */
+  .restfull{position:fixed; inset:0; z-index:30; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px 16px calc(20px + env(safe-area-inset-bottom));}
+  .restfull .lab{font-size:18px; color:var(--dim); font-weight:700;}
+  .restfull .n{font-family:var(--num); font-size:132px; font-weight:700; line-height:.95; font-variant-numeric:tabular-nums;}
+  .restfull .track{width:100%; height:6px; border-radius:3px; background:var(--card2); position:relative; overflow:hidden;}
+  .restfull .prog{position:absolute; left:0; top:0; bottom:0; background:var(--acc); transition:width .25s linear;}
+  .restfull .adj{display:flex; gap:10px;}
+  .restfull .adj button{min-width:96px; height:48px; font-size:16px;}
+  .restfull .next{width:100%; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px;}
+  .restfull .next .t{font-size:14px; color:var(--dim); font-weight:700; margin:0 4px 8px;}
+  .restfull .next .t b{color:var(--warn);}
+  .restfull .next .g{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .restfull .next .cell{display:flex; align-items:center; gap:4px;}
+  .restfull .next .cell button{flex:0 0 46px; height:54px; padding:0; font-size:26px;}
+  .restfull .next .cell .v{flex:1; text-align:center; font-family:var(--num); font-size:34px; font-weight:700; font-variant-numeric:tabular-nums;}
+  .restfull .next .cell .v small{font-family:-apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; font-size:13px; color:var(--dim); margin-left:2px;}
+  .restfull .acts{display:flex; gap:10px; width:100%;}
+  .restfull .acts button{flex:1; height:60px; font-size:18px; white-space:normal;}
+  .restfull.soon{animation:blinkfull 1s steps(2, jump-none) infinite;}
+  @keyframes blinkfull{0%{background:var(--warn-flash);}100%{background:var(--bg);}}
+  @media (prefers-reduced-motion: reduce){ .restfull.soon{animation:none; background:var(--warn-tint);} }
+  .restfull.soon .n, .restfull.over .n, .restfull.over .lab{color:var(--warn);}
+  .restfull.over .prog{background:var(--warn);}
   .hidden{display:none !important;}
   .hist{font-size:14px; color:var(--dim); margin-top:8px; line-height:1.6;}
   .hist b{color:var(--fg); font-weight:600;}
@@ -309,7 +335,7 @@ function homeStart() {
     <button class="big ${todays.length ? "" : "acc"}" style="margin-bottom:10px" onclick="startSession('free')">${todays.length ? "계획 없이 하나씩 골라서" : "하나씩 골라서 시작"}</button>
     <button class="ghost" style="width:100%;border-style:dashed;margin-bottom:12px;min-height:48px" onclick="newPlan()">📋 ＋ 계획 만들기</button>
     ${upcoming.map(p => planCard(p, "upcoming")).join("")}
-    ${overdue.length ? `<button class="ghost" style="width:100%;margin-bottom:12px;min-height:48px;color:var(--warn);border-color:rgba(255,179,71,.4)" onclick="showOverdue=!showOverdue;renderHome()">밀린 계획 ${overdue.length}개 ${showOverdue ? "▴" : "▾"}</button>
+    ${overdue.length ? `<button class="ghost" style="width:100%;margin-bottom:12px;min-height:48px;color:var(--warn);border-color:var(--warn-line)" onclick="showOverdue=!showOverdue;renderHome()">밀린 계획 ${overdue.length}개 ${showOverdue ? "▴" : "▾"}</button>
       ${showOverdue ? overdue.map(p => planCard(p, "overdue")).join("") : ""}` : ""}`;
 }
 // 서비스워커가 살아 있고 index.html 이 캐시에 있으면 헬스장(오프라인)에서도 열림
@@ -516,7 +542,8 @@ function renderExercise() {
     ${allDone
       ? `<div class="row"><button class="big" style="flex:1" onclick="addRow()">＋ 한 세트 더</button><button class="big acc" style="flex:1.3" onclick="nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동 →" : "운동 고르기 →"}</button></div>`
       : `<div class="row"><button class="big ghost" style="flex:0 0 auto;width:auto;padding:20px 14px;font-size:16px" onclick="endExercise()">이 운동<br>끝</button><button class="big ok" style="flex:1" onclick="completeSet()">${r.done ? "수정 완료" : (r.type === "W" ? "워밍업 완료 ✓" : r.type + "세트 완료 ✓")}</button></div>`}
-  </div>`);
+  </div>
+  ${restFull()}`);
   tickRest();
 }
 // 원판을 양쪽에 끼우는 운동: 기록한 무게에서 바 무게를 빼고 반으로 나눠 한쪽 원판 조합을 보여줌.
@@ -632,19 +659,40 @@ function removeExercise() {
 /* ===================== 휴식 타이머 ===================== */
 // 화면을 덮지 않고 하단에 띠로 보임 → 쉬는 동안 다음 세트 무게를 바로 바꿀 수 있음.
 // 다른 운동·목록으로 넘어가도 계속 돌고, 끝나면 진동+소리.
-let restT = null, restEnd = null, restTotal = 0, restFired = false;
+// restMode: "full" = 큰 휴식 화면 / "mini" = 하단 띠 (줄이기 누르면)
+let restT = null, restEnd = null, restTotal = 0, restFired = false, restMode = "full";
 function startRest(sec) {
-  restEnd = Date.now() + sec * 1000; restTotal = sec * 1000; restFired = false;
+  restEnd = Date.now() + sec * 1000; restTotal = sec * 1000; restFired = false; restMode = "full";
   renderExercise();
+}
+function restMin() { restMode = "mini"; render(); }
+function restOpen() {
+  restMode = "full";
+  if (view !== "exercise" && cur && cur.entries[exIdx]) go("exercise"); else render();
 }
 function restAdd(s) { if (!restEnd) return; restEnd += s * 1000; restTotal = Math.max(1000, restTotal + s * 1000); restFired = restEnd <= Date.now(); tickRest(); }
 function endRest() { restEnd = null; clearInterval(restT); restT = null; render(); }
 function mmss(sec) { const a = Math.abs(sec); return `${Math.floor(a / 60)}:${String(a % 60).padStart(2, "0")}`; }
 function restBar() {
-  if (!restEnd || !cur) return "";
-  return `<div class="restbar" id="rest"><span class="lab">휴식</span><span class="n" id="restN"></span>
+  if (!restEnd || !cur || (restMode === "full" && view === "exercise")) return "";
+  return `<div class="restbar" id="rest"><span class="lab" onclick="restOpen()">휴식</span><span class="n" id="restN" onclick="restOpen()"></span>
     <button onclick="restAdd(-15)">−15</button><button onclick="restAdd(15)">＋15</button><button onclick="endRest()" aria-label="휴식 끝">✕</button>
     <div class="prog" id="restP"></div></div>`;
+}
+function restFull() {
+  if (!restEnd || !cur || restMode !== "full" || view !== "exercise") return "";
+  const e = cur.entries[exIdx], r = e.rows[sel], done = e.rows.every(x => x.done);
+  const pl = !done && plateText(e.ex, r.kg);
+  const middle = done
+    ? `<div class="acts"><button onclick="restMin();addRow()">＋ 한 세트 더</button><button class="acc" onclick="restMin();nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동" : "운동 고르기"}</button></div>`
+    : `<div class="next"><div class="t">다음 · ${r.type === "W" ? "워밍업" : r.type + "세트"}${pl ? ` · <b>${pl}</b>` : ""}</div><div class="g">
+        <div class="cell"><button onclick="adj('kg',-1)">−</button><div class="v">${fmt(r.kg)}<small>kg</small></div><button onclick="adj('kg',1)">＋</button></div>
+        <div class="cell"><button onclick="adj('reps',-1)">−</button><div class="v">${r.reps}<small>회</small></div><button onclick="adj('reps',1)">＋</button></div></div></div>`;
+  return `<div class="restfull" id="rest"><div class="lab">휴식</div><div class="n" id="restN"></div>
+    <div class="track"><div class="prog" id="restP"></div></div>
+    <div class="adj"><button onclick="restAdd(-15)">−15초</button><button onclick="restAdd(15)">＋15초</button></div>
+    ${middle}
+    <div class="acts"><button onclick="restMin()">줄이기</button><button class="${done ? "" : "acc"}" onclick="endRest()">${done ? "타이머 닫기" : "건너뛰기"}</button></div></div>`;
 }
 function tickRest() {
   clearInterval(restT); restT = null;
@@ -853,7 +901,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v26 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v27 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -934,6 +982,7 @@ function closeModal() { const m = $("#modal"); if (m) m.remove(); }
 window.history.pushState({ guard: 1 }, "");
 window.addEventListener("popstate", () => {
   if ($("#modal")) closeModal();
+  else if (restEnd && restMode === "full" && view === "exercise") restMin();
   else if (view === "exercise") go("session");
   else if (view === "planEdit") { pe = null; go("home"); }
   else if (view === "session" || view === "detail") go("home");
