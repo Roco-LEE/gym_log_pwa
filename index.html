@@ -13,6 +13,7 @@
   :root{
     --bg:#0b0f14; --card:#151b23; --card2:#1c242e; --line:#2a3440;
     --fg:#f2f5f8; --dim:#8a96a3; --acc:#4f9cff; --ok:#3ddc84; --warn:#ffb347; --bad:#ff5c5c;
+    --num:"Roboto Condensed", "sans-serif-condensed", "Arial Narrow", sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
   [data-hold]{touch-action:pan-y;}
@@ -35,6 +36,8 @@
   button.sm{padding:8px 12px; font-size:14px; border-radius:10px;}
   button:disabled{opacity:.4;}
   .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
+  .card.today{border-color:rgba(79,156,255,.55);}
+  .card .row:empty{display:none;}
   .row{display:flex; align-items:center; gap:10px;}
   .dim{color:var(--dim);} .small{font-size:13px;} .mt{margin-top:10px;}
   .list button{display:flex; width:100%; text-align:left; align-items:center; gap:10px; margin-bottom:8px; padding:16px 14px; font-size:19px;}
@@ -42,6 +45,8 @@
   .list button.done{opacity:.55;}
   .list button .chk{width:28px; height:28px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:16px;}
   .list button.done .chk{background:var(--ok); border-color:var(--ok); color:#062;}
+  .list button.started{border-color:var(--acc); background:var(--card2);}
+  .list button.started .chk{border-color:var(--acc); color:var(--acc); font-size:22px;}
 
   /* 운동 화면 */
   .exname{font-size:28px; font-weight:800; line-height:1.15;}
@@ -67,8 +72,9 @@
   .set.done.sel{opacity:1;}
   .set .lab{width:36px; font-size:15px; font-weight:700; color:var(--dim);}
   .set .lab.w{color:var(--warn);}
-  .set .v{flex:1; font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.5px;}
-  .set .v small{font-size:16px; color:var(--dim); font-weight:600; margin:0 3px;}
+  .set .v{flex:1; font-family:var(--num); font-size:40px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.5px; line-height:1.1;}
+  .set .v small{font-family:-apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; font-size:15px; color:var(--dim); font-weight:600; margin:0 3px;}
+  .set .plates{max-width:76px; font-size:13px; line-height:1.25; color:var(--warn); font-weight:700; text-align:right;}
   .set.sel .v .tap{border-bottom:2px dotted var(--dim); padding:0 1px;}
   .set .v input{width:3.6em; font-size:28px; font-weight:800; text-align:center; padding:2px; border-radius:10px; border:2px solid var(--acc); background:var(--bg); color:var(--fg); font-variant-numeric:tabular-nums;}
   .set .st{width:30px; height:30px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800;}
@@ -83,7 +89,7 @@
   .stepgrid button{height:56px; font-size:18px; font-variant-numeric:tabular-nums;}
   .nstep{display:flex; gap:6px; align-items:center; margin-top:4px;}
   .nstep button{flex:0 0 44px; height:46px; padding:0; font-size:24px; border-radius:12px; line-height:1;}
-  .nstep input{flex:1; min-width:0; text-align:center; font-size:20px; font-weight:700; padding:10px 4px; font-variant-numeric:tabular-nums;}
+  .nstep input{flex:1; min-width:0; text-align:center; font-family:var(--num); font-size:24px; font-weight:700; padding:8px 4px; font-variant-numeric:tabular-nums;}
   .fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
   button.pick.on{background:var(--acc); border-color:var(--acc); color:#fff;}
@@ -92,7 +98,7 @@
   .restbar{display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:6px 6px 6px 14px; border-radius:16px; background:var(--card2); border:1px solid var(--line); position:relative; overflow:hidden;}
   .restbar .prog{position:absolute; left:0; bottom:0; height:3px; background:var(--acc); transition:width .25s linear;}
   .restbar .lab{font-size:14px; color:var(--dim); font-weight:700;}
-  .restbar .n{flex:1; font-size:40px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1;}
+  .restbar .n{flex:1; font-family:var(--num); font-size:46px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.05;}
   .restbar button{min-width:52px; height:48px; padding:0 8px; font-size:15px; border-radius:12px;}
   .restbar.over{background:rgba(255,179,71,.16); border-color:var(--warn);}
   .restbar.over .n, .restbar.over .lab{color:var(--warn);}
@@ -124,23 +130,7 @@
 /* ===================== 기본 데이터 (헬스일지.xlsx 에서 가져옴) ===================== */
 const DEFAULT_EXERCISES = [{"n": "랫풀다운", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "체스트프레스", "p": "가슴", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "시티드로우", "p": "등", "t": "머신", "step": 3.75, "rep": "10-15"}, {"n": "레그프레스(핀)", "p": "하체", "t": "머신", "step": 10, "rep": "10-15"}, {"n": "레그프레스(원판)", "p": "하체", "t": "프리웨이트", "step": 10, "rep": "10-15"}, {"n": "레그익스텐션", "p": "하체", "t": "머신", "step": 3.75, "rep": "12-15"}, {"n": "숄더프레스", "p": "어깨", "t": "머신", "step": 2.5, "rep": "10-15"}, {"n": "레그컬", "p": "하체", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "인클라인 체스트프레스", "p": "가슴", "t": "머신", "step": 5, "rep": "10-15"}, {"n": "펙덱 플라이", "p": "가슴", "t": "머신", "step": 5, "rep": "12-15"}, {"n": "벤치프레스", "p": "가슴", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "인클라인 덤벨프레스", "p": "가슴", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "턱걸이(보조)", "p": "등", "t": "보조머신", "step": 5, "rep": "6-12"}, {"n": "턱걸이", "p": "등", "t": "맨몸", "step": 2.5, "rep": "5-10"}, {"n": "딥스(보조)", "p": "팔", "t": "보조머신", "step": 5, "rep": "8-12"}, {"n": "케이블 로우", "p": "등", "t": "케이블", "step": 5, "rep": "10-15"}, {"n": "덤벨 로우", "p": "등", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "데드리프트", "p": "등", "t": "프리웨이트", "step": 5, "rep": "5-8"}, {"n": "루마니안 데드리프트", "p": "하체", "t": "프리웨이트", "step": 5, "rep": "8-12"}, {"n": "덤벨 숄더프레스", "p": "어깨", "t": "프리웨이트", "step": 2, "rep": "8-12"}, {"n": "사이드 레터럴 레이즈", "p": "어깨", "t": "덤벨", "step": 1, "rep": "12-20"}, {"n": "리어 델트 플라이", "p": "어깨", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "바벨 컬", "p": "팔", "t": "프리웨이트", "step": 2.5, "rep": "8-12"}, {"n": "덤벨 컬", "p": "팔", "t": "덤벨", "step": 1, "rep": "10-15"}, {"n": "트라이셉스 푸시다운", "p": "팔", "t": "케이블", "step": 2.5, "rep": "10-15"}, {"n": "딥스", "p": "팔", "t": "맨몸", "step": 2.5, "rep": "6-12"}, {"n": "바벨 스쿼트", "p": "하체", "t": "프리웨이트", "step": 2.5, "rep": "6-10"}, {"n": "핵 스쿼트", "p": "하체", "t": "머신", "step": 10, "rep": "8-12"}, {"n": "힙 어브덕션", "p": "하체", "t": "머신", "step": 5, "rep": "12-20"}, {"n": "카프레이즈", "p": "하체", "t": "맨몸", "step": 2.5, "rep": "12-20"}, {"n": "백 익스텐션", "p": "코어", "t": "맨몸", "step": 2.5, "rep": "12-15"}, {"n": "행잉 레그레이즈", "p": "코어", "t": "맨몸", "step": 0, "rep": "8-15"}, {"n": "플랭크", "p": "코어", "t": "맨몸", "step": 0, "rep": "30-60초"}, {"n": "크런치", "p": "코어", "t": "머신", "step": 5, "rep": "12-20"}];
 
-const ROUTINES = {
-  "A": [
-    {ex:"랫풀다운", sets:3, rest:90},
-    {ex:"체스트프레스", sets:3, rest:90},
-    {ex:"시티드로우", sets:3, rest:90},
-    {ex:"레그프레스(핀)", sets:3, rest:120},
-    {ex:"숄더프레스", sets:2, rest:90},
-  ],
-  "B": [
-    {ex:"턱걸이(보조)", sets:3, rest:90},
-    {ex:"인클라인 체스트프레스", sets:3, rest:90},
-    {ex:"케이블 로우", sets:3, rest:90},
-    {ex:"레그익스텐션", sets:2, rest:90},
-    {ex:"레그컬", sets:2, rest:90},
-    {ex:"사이드 레터럴 레이즈", sets:2, rest:60},
-  ],
-};
+
 
 
 /* ===================== 저장소 ===================== */
@@ -291,17 +281,7 @@ function renderHome() {
   <div class="body">
     ${cur ? `<div class="card"><div class="dim small">${md(cur.date)} 시작한 운동이 진행 중 · ${cur.entries.filter(e => e.rows.some(r => r.done)).length}개 운동 함</div>
       <button class="big warn mt" onclick="go('session')">이어하기 →</button>
-      <div class="row mt" style="gap:8px"><button style="flex:1" onclick="finishSession()">여기까지 저장</button><button style="flex:1;color:var(--bad)" onclick="cancelSession()">버리기</button></div></div>` : `
-    <div class="card">
-      <div class="dim small">오늘 ${today()}</div>
-      <div class="row mt" style="gap:8px">
-        <button class="big acc" style="flex:1" onclick="startSession('A')">A 루틴</button>
-        <button class="big acc" style="flex:1" onclick="startSession('B')">B 루틴</button>
-      </div>
-      <button class="big mt" onclick="startSession('free')">하나씩 골라서 시작</button>
-    </div>`}
-    ${!cur ? openPlans().map(planCard).join("") : ""}
-    ${!cur ? `<button class="ghost" style="width:100%;border-style:dashed;margin-bottom:12px" onclick="newPlan()">📋 ＋ 계획 만들기</button>` : ""}
+      <div class="row mt" style="gap:8px"><button style="flex:1" onclick="finishSession()">여기까지 저장</button><button style="flex:1;color:var(--bad)" onclick="cancelSession()">버리기</button></div></div>` : homeStart()}
     ${unsyncedCount() || hasExMemo() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">${unsyncedCount() ? `엑셀로 안 보낸 기록 ${unsyncedCount()}일` : "엑셀로 메모 보내기"}</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
       <button class="acc" id="syncBtn" onclick="syncNow()">동기화</button></div>` : ""}
     <h3>지난 기록</h3>
@@ -316,6 +296,17 @@ function renderHome() {
     <button style="flex:1" onclick="importJSON()">가져오기</button>
   </div>`);
   offlineStatus().then(t => { const el = $("#offl"); if (el) el.innerHTML = t; });
+}
+// 홈 위쪽: 오늘 계획 → 시작 버튼 → 다가오는 계획 → 밀린 계획
+let showOverdue = false;
+function homeStart() {
+  const todays = plansOn("today"), upcoming = plansOn("upcoming"), overdue = plansOn("overdue");
+  return `${todays.map(p => planCard(p, "today")).join("")}
+    <button class="big ${todays.length ? "" : "acc"}" style="margin-bottom:10px" onclick="startSession('free')">${todays.length ? "계획 없이 하나씩 골라서" : "하나씩 골라서 시작"}</button>
+    <button class="ghost" style="width:100%;border-style:dashed;margin-bottom:12px;min-height:48px" onclick="newPlan()">📋 ＋ 계획 만들기</button>
+    ${upcoming.map(p => planCard(p, "upcoming")).join("")}
+    ${overdue.length ? `<button class="ghost" style="width:100%;margin-bottom:12px;min-height:48px;color:var(--warn);border-color:rgba(255,179,71,.4)" onclick="showOverdue=!showOverdue;renderHome()">밀린 계획 ${overdue.length}개 ${showOverdue ? "▴" : "▾"}</button>
+      ${showOverdue ? overdue.map(p => planCard(p, "overdue")).join("") : ""}` : ""}`;
 }
 // 서비스워커가 살아 있고 index.html 이 캐시에 있으면 헬스장(오프라인)에서도 열림
 async function offlineStatus() {
@@ -349,12 +340,12 @@ function deleteSession(id) {
 }
 
 /* ===================== 세션 ===================== */
+// 계획 없이 시작: 운동을 하나씩 고름
 function startSession(routine) {
-  const plan = ROUTINES[routine] || [];
-  cur = { id: "s-" + Date.now(), date: today(), routine, start: Date.now(), entries: plan.map(p => makeEntry(p.ex, p.sets, p.rest)) };
+  cur = { id: "s-" + Date.now(), date: today(), routine, start: Date.now(), entries: [] };
   saveCur(); exIdx = 0;
   go("session");
-  if (!cur.entries.length) pickExercise();
+  pickExercise();
 }
 // 지난 기록을 기본값으로 채운 운동 항목 생성
 function row(type, kg, reps) { return { type, kg, reps, done: false, pre: { kg, reps } }; }
@@ -384,10 +375,12 @@ function renderSession() {
   <div class="body list">
     ${cur.entries.map((e, i) => {
       const done = e.rows.filter(r => r.done && r.type !== "W").length, total = e.rows.filter(r => r.type !== "W").length;
-      return `<button class="${done && done >= total ? "done" : ""}" data-hold="holdRemoveEntry:${i}" onclick="openExercise(${i})">
-        <span class="chk">${done && done >= total ? "✓" : ""}</span>
-        <span class="n">${esc(e.ex)}<div class="dim small" style="font-weight:500">${done ? doneText(e) : e.plan ? "🎯 " + planTargetText(e.plan) : (exHistory(e.ex)[0] ? "지난번 " + setsText(exHistory(e.ex)[0]) : "첫 기록")}</div></span>
-        <span class="dim">${done}/${total}</span></button>`;
+      const finished = done && done >= total, started = !finished && e.rows.some(r => r.done);
+      const sub = done ? doneText(e) : started ? "워밍업 완료" : e.plan ? "🎯 " + planTargetText(e.plan) : (exHistory(e.ex)[0] ? "지난번 " + setsText(exHistory(e.ex)[0]) : "첫 기록");
+      return `<button class="${finished ? "done" : started ? "started" : ""}" data-hold="holdRemoveEntry:${i}" onclick="openExercise(${i})">
+        <span class="chk">${finished ? "✓" : started ? "•" : ""}</span>
+        <span class="n">${esc(e.ex)}<div class="dim small" style="font-weight:500">${sub}</div></span>
+        <span class="${started ? "" : "dim"}" style="${started ? "color:var(--acc);font-weight:800" : ""}">${done}/${total}</span></button>`;
     }).join("")}
     <button class="ghost" style="width:100%;border-style:dashed" onclick="pickExercise()">＋ 운동 추가</button>
     <button class="ghost" style="width:100%;border-style:dashed;margin-top:8px;text-align:left;font-size:15px;white-space:normal" onclick="sessionMemo()">📝 ${cur.memo ? esc(cur.memo) : "오늘 메모 (헬스장 상황, 컨디션 …)"}</button>
@@ -499,6 +492,7 @@ function renderExercise() {
       ${e.rows.map((x, i) => `<div class="set ${i === sel ? "sel" : ""} ${x.done ? "done" : ""}" onclick="selectRow(${i})">
         <div class="lab ${x.type === "W" ? "w" : ""}">${x.type === "W" ? "W" : x.type}</div>
         <div class="v">${num(x, i, "kg")} ${num(x, i, "reps")}</div>
+        ${i === sel && plateText(e.ex, x.kg) ? `<div class="plates">${plateText(e.ex, x.kg)}</div>` : ""}
         <div class="st">${x.done ? "✓" : ""}</div></div>`).join("")}
       <button class="ghost" style="width:100%;border-style:dashed;min-height:44px" onclick="addRow()">＋ 세트</button>
     </div>
@@ -520,6 +514,18 @@ function renderExercise() {
       : `<div class="row"><button class="big ghost" style="flex:0 0 auto;width:auto;padding:20px 14px;font-size:16px" onclick="endExercise()">이 운동<br>끝</button><button class="big ok" style="flex:1" onclick="completeSet()">${r.done ? "수정 완료" : (r.type === "W" ? "워밍업 완료 ✓" : r.type + "세트 완료 ✓")}</button></div>`}
   </div>`);
   tickRest();
+}
+// 원판을 양쪽에 끼우는 운동: 기록한 무게에서 바 무게를 빼고 반으로 나눠 한쪽 원판 조합을 보여줌.
+// 레그프레스(원판)은 원판 무게만 기록하므로 바 0. 바벨 컬은 바 무게가 정해지지 않아 뺐음.
+const PLATE_EX = { "레그프레스(원판)": 0, "벤치프레스": 20, "바벨 스쿼트": 20, "데드리프트": 20, "루마니안 데드리프트": 20 };
+const PLATES = [20, 15, 10, 5, 2.5, 1.25];
+function plateText(ex, kg) {
+  if (!(ex in PLATE_EX)) return "";
+  let side = (kg - PLATE_EX[ex]) / 2;
+  if (side <= 0) return PLATE_EX[ex] ? "빈 바" : "";
+  const out = [];
+  for (const pl of PLATES) while (side >= pl - 1e-9) { out.push(pl); side -= pl; }
+  return "한쪽 " + out.map(fmt).join("+") + (side > 0.01 ? ` +${fmt(side)}` : "");
 }
 // 무게 증감 단위 고르기 (운동별로 기억)
 function pickStep() {
@@ -666,9 +672,17 @@ function fetchPlans() {
 }
 function donePlans() { return DB.donePlans || []; }
 // 오늘 이후(또는 오늘) 계획 중 아직 안 한 것, 날짜 빠른 순
-function openPlans() {
-  return allPlans().filter(p => !donePlans().includes(p.id) && p.date >= today()).sort((a, b) => a.date < b.date ? -1 : 1);
+// 아직 안 한 계획을 오늘 / 다가오는 / 밀린(2주 이내) 으로 나눔
+function plansOn(kind) {
+  const t = today(), open = allPlans().filter(p => !donePlans().includes(p.id));
+  if (kind === "today") return open.filter(p => p.date === t);
+  if (kind === "upcoming") return open.filter(p => p.date > t).sort((a, b) => a.date < b.date ? -1 : 1);
+  return open.filter(p => p.date < t && p.date >= addDays(-14)).sort((a, b) => a.date > b.date ? -1 : 1);
 }
+function openPlans() { return [...plansOn("today"), ...plansOn("upcoming")]; }
+function daysAgo(d) { return Math.round((new Date(today()) - new Date(d)) / 86400000); }
+function planToToday(id) { const p = (DB.myPlans || []).find(x => x.id === id); if (!p) return; p.date = today(); save(); toast("오늘로 옮김"); renderHome(); }
+function hidePlan(id) { DB.donePlans = [...new Set([...donePlans(), id])]; save(); renderHome(); }
 // PC plan.json 계획(DB.plans) + 폰에서 만든 계획(DB.myPlans)
 function allPlans() { return [...(DB.plans || []), ...(DB.myPlans || [])]; }
 function planById(id) { return allPlans().find(p => p.id === id); }
@@ -678,15 +692,22 @@ function startPlan(id) {
           entries: p.items.map(it => makeEntry(it.ex, it.sets, it.rest, it)) };
   saveCur(); exIdx = 0; go("session");
 }
-function planCard(p) {
-  return `<div class="card">
-    <div class="row"><div style="flex:1"><div style="font-weight:700;font-size:17px">📋 ${esc(p.title || md(p.date) + " 계획")}</div>
-      <div class="dim small">${p.date === today() ? "오늘" : md(p.date)} · ${p.items.length}개 운동</div></div></div>
+// mode: today(주인공) / upcoming(다가오는) / overdue(밀린)
+function planCard(p, mode = "today") {
+  const mine = p.id.startsWith("my-");
+  const when = mode === "overdue" ? `<span style="color:var(--warn)">${md(p.date)} · ${daysAgo(p.date)}일 지남</span>` : p.date === today() ? "오늘" : md(p.date);
+  return `<div class="card${mode === "today" ? " today" : ""}">
+    <div style="font-weight:700;font-size:17px">📋 ${esc(p.title || md(p.date) + " 계획")}</div>
+    <div class="dim small">${when} · ${p.items.length}개 운동${mine ? "" : " · PC에서 받은 계획"}</div>
     ${p.note ? `<div class="dim small mt">${esc(p.note)}</div>` : ""}
     <div class="hist">${p.items.map(it => `${esc(it.ex)} <b>${planTargetText(it)}</b>`).join("<br>")}</div>
-    <button class="big acc mt" onclick="startPlan('${p.id}')">이 계획으로 시작 →</button>
-    ${p.id.startsWith("my-") ? `<div class="row mt" style="gap:8px"><button style="flex:1" onclick="editPlan('${p.id}')">수정</button><button style="flex:1;color:var(--bad)" onclick="deletePlan('${p.id}')">삭제</button></div>`
-      : `<div class="dim small mt" style="text-align:center">PC에서 받은 계획</div>`}
+    <button class="big ${mode === "today" ? "acc" : ""} mt" onclick="startPlan('${p.id}')">이 계획으로 시작</button>
+    <div class="row mt" style="gap:8px">
+      ${mode === "overdue" && mine ? `<button style="flex:1" onclick="planToToday('${p.id}')">오늘로 옮기기</button>` : ""}
+      ${mine ? `<button style="flex:1" onclick="editPlan('${p.id}')">수정</button>` : ""}
+      ${mode === "overdue" ? `<button style="flex:1;color:var(--dim)" onclick="hidePlan('${p.id}')">숨기기</button>`
+        : mine ? `<button style="flex:1;color:var(--bad)" onclick="deletePlan('${p.id}')">삭제</button>` : ""}
+    </div>
   </div>`;
 }
 
@@ -827,7 +848,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v24 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v25 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
