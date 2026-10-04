@@ -9,6 +9,7 @@ serve.py 가 /api/sync 로 받아서 호출하고, 앱에서 내보낸 JSON 파�
   나머지(요일·부위·볼륨·1RM 등)는 시트에 이미 깔린 수식이 계산.
 - 그날 전체 메모는 그 세션 첫 줄 W열에 "[오늘] ..." 로 들어감.
 - 운동 시작·종료 시각은 그 세션 첫 줄 AI·AJ 열에 (AK 운동(분)은 시트 수식이 계산).
+- 유산소(트레드밀 등)는 [기록]이 아니라 [활동] 시트에 한 줄씩: A날짜 C종류 D거리 E시간 G강도 H장소 I메모.
 - 앱에서 운동에 붙여둔 고정 메모(머신 번호 등)는 [운동목록] F열 뒤에 "[폰] ..." 로 붙임.
   원래 적혀 있던 내용은 건드리지 않고, 다시 동기화하면 [폰] 뒤쪽만 갱신됨.
 - 같은 세션을 두 번 넣지 않도록 넣은 id 를 synced.json 에 기록.
@@ -190,8 +191,43 @@ def read_excel():
         records.append({"date": d.isoformat(), "ex": str(ex), "memo": r[22] or "",
                         "warm": {"kg": wk, "reps": wr} if wk is not None and wr is not None else None,
                         "sets": sets, "start": start, "end": end})
+    # [활동]: 앱을 쓰기 시작한 뒤(첫 [기록] 날짜 이후)만. 그 전 몇 년치 러닝·F45 는 안 보냄
+    since = min((r["date"] for r in records), default="9999")
+    activities = []
+    for r in wb["활동"].iter_rows(min_row=2, max_col=9, values_only=True):
+        d = r[0]
+        if isinstance(d, datetime.datetime):
+            d = d.date()
+        if not isinstance(d, datetime.date) or not r[2] or d.isoformat() < since:
+            continue
+        activities.append({"date": d.isoformat(), "ex": str(r[2]), "km": num(r[3]), "sec": parse_sec(r[4]),
+                           "level": r[6] or "", "place": r[7] or "", "memo": r[8] or ""})
     wb.close()
-    return {"exercises": exercises, "records": records}
+    return {"exercises": exercises, "records": records, "activities": activities}
+
+
+def sec_text(sec):
+    """초 → [활동] E열 형식('9:30' / '1:05:27')"""
+    if sec is None:
+        return None
+    sec = int(round(sec)); h, m, s = sec // 3600, sec % 3600 // 60, sec % 60
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def parse_sec(v):
+    """[활동] E열('9:30', '1:05:27', '16.48', 시각 값) → 초"""
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime.time):
+        return v.hour * 3600 + v.minute * 60 + v.second
+    if isinstance(v, (int, float)):           # 16.48 = 16분 48초로 적은 것
+        m = int(v); return m * 60 + int(round((float(v) - m) * 100))
+    t = str(v).strip().replace(".", ":")
+    try:
+        p = [int(x) for x in t.split(":")]
+    except ValueError:
+        return None
+    return p[0] * 60 if len(p) == 1 else p[0] * 60 + p[1] if len(p) == 2 else p[0] * 3600 + p[1] * 60 + p[2]
 
 
 def append_sessions(sessions, ex_memo=None):
@@ -212,7 +248,11 @@ def append_sessions(sessions, ex_memo=None):
     while ws.cell(row, 1).value not in (None, "") or ws.cell(row, 3).value not in (None, ""):
         row += 1
 
-    n = 0
+    wa = wb["활동"]
+    arow = 2
+    while wa.cell(arow, 1).value not in (None, ""):
+        arow += 1
+    n = cardio = 0
     for s in sorted(todo, key=lambda x: x["date"]):
         d = datetime.datetime.strptime(s["date"], "%Y-%m-%d")
         day_memo = (s.get("memo") or "").strip().replace("\n", " ")
@@ -241,13 +281,35 @@ def append_sessions(sessions, ex_memo=None):
                 first_row = False
             row += 1
             n += 1
+        # 유산소 → [활동]
+        for e in s["entries"]:
+            c = e.get("cardio")
+            if not c:
+                continue
+            memo = (e.get("memo") or "").strip().replace("\n", " ")
+            if day_memo:   # 웨이트 없이 유산소만 한 날이면 오늘 메모는 여기에
+                memo = f"[오늘] {day_memo}" + (" · " + memo if memo else ""); day_memo = ""
+            wa.cell(arow, 1, d).number_format = "yyyy-mm-dd"
+            wa.cell(arow, 3, e["ex"])
+            if c.get("km"):
+                wa.cell(arow, 4, c["km"])
+            if c.get("sec"):
+                wa.cell(arow, 5, sec_text(c["sec"]))
+            if c.get("level"):
+                wa.cell(arow, 7, c["level"])
+            if c.get("place"):
+                wa.cell(arow, 8, c["place"])
+            if memo:
+                wa.cell(arow, 9, memo)
+            arow += 1
+            cardio += 1
 
     backup()
     wb.save(XLSX)          # Excel 에서 파일이 열려 있으면 여기서 PermissionError
     fix_apply_attrs(XLSX)
     synced |= {s["id"] for s in todo}
     save_synced(synced)
-    return {"written": [s["id"] for s in todo], "rows": n, "memos": memos,
+    return {"written": [s["id"] for s in todo], "rows": n + cardio, "cardio": cardio, "memos": memos,
             "skipped": [s["id"] for s in sessions if s["id"] in synced and s not in todo]}
 
 

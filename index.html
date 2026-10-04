@@ -16,6 +16,7 @@
     --fg:#f5f5f5; --dim:#9a9a9a; --acc:#ff7a1a; --on-acc:#1a0b00; --ok:#3ddc84; --warn:#ffd23f; --bad:#ff5c5c;
     --acc-tint:rgba(255,122,26,.12); --acc-line:rgba(255,122,26,.45);
     --warn-tint:rgba(255,210,63,.12); --warn-line:rgba(255,210,63,.35); --warn-flash:rgba(255,210,63,.30);
+    --warn-flash-solid:#4d3f13;  /* 노랑 30%를 검정 위에 미리 섞은 불투명 색 (큰 휴식 화면 뒤가 비치지 않게) */
     --num:"Roboto Condensed", "sans-serif-condensed", "Arial Narrow", sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
@@ -91,7 +92,7 @@
   .stepgrid button{height:56px; font-size:18px; font-variant-numeric:tabular-nums;}
   .nstep{display:flex; gap:6px; align-items:center; margin-top:4px;}
   .nstep button{flex:0 0 44px; height:46px; padding:0; font-size:24px; border-radius:12px; line-height:1;}
-  .nstep input{flex:1; min-width:0; text-align:center; font-family:var(--num); font-size:24px; font-weight:700; padding:8px 4px; font-variant-numeric:tabular-nums;}
+  .nstep input[type]{flex:1; min-width:0; text-align:center; font-family:var(--num); font-size:24px; font-weight:700; padding:8px 4px; font-variant-numeric:tabular-nums;}
   .fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
   button.pick.on{background:var(--acc); border-color:var(--acc); color:var(--on-acc);}
@@ -121,16 +122,18 @@
   .restfull .next{width:100%; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px;}
   .restfull .next .t{font-size:14px; color:var(--dim); font-weight:700; margin:0 4px 8px;}
   .restfull .next .t b{color:var(--warn);}
-  .restfull .next .g{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .restfull .next .t .setno{color:var(--fg); font-family:var(--num); font-size:22px;}
+  .restfull .next .t .setno span{color:var(--dim); font-size:16px;}
+  .restfull .next .g{display:grid; grid-template-columns:1fr; gap:8px;}
   .restfull .next .cell{display:flex; align-items:center; gap:4px;}
-  .restfull .next .cell button{flex:0 0 46px; height:54px; padding:0; font-size:26px;}
-  .restfull .next .cell .v{flex:1; text-align:center; font-family:var(--num); font-size:34px; font-weight:700; font-variant-numeric:tabular-nums;}
+  .restfull .next .cell button{flex:0 0 64px; height:54px; padding:0; font-size:26px;}
+  .restfull .next .cell .v{flex:1; text-align:center; white-space:nowrap; font-family:var(--num); font-size:36px; font-weight:700; font-variant-numeric:tabular-nums;}
   .restfull .next .cell .v small{font-family:-apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; font-size:13px; color:var(--dim); margin-left:2px;}
   .restfull .acts{display:flex; gap:10px; width:100%;}
   .restfull .acts button{flex:1; height:60px; font-size:18px; white-space:normal;}
   .restfull.soon{animation:blinkfull 1s steps(2, jump-none) infinite;}
-  @keyframes blinkfull{0%{background:var(--warn-flash);}100%{background:var(--bg);}}
-  @media (prefers-reduced-motion: reduce){ .restfull.soon{animation:none; background:var(--warn-tint);} }
+  @keyframes blinkfull{0%{background:var(--warn-flash-solid);}100%{background:var(--bg);}}
+  @media (prefers-reduced-motion: reduce){ .restfull.soon{animation:none; background:#1f1a08;} }
   .restfull.soon .n, .restfull.over .n, .restfull.over .lab{color:var(--warn);}
   .restfull.over .prog{background:var(--warn);}
   .hidden{display:none !important;}
@@ -228,7 +231,7 @@ function migrateNames() {
 function syncExerciseList() {
   const base = DB.xlExercises && DB.xlExercises.length ? DB.xlExercises : DEFAULT_EXERCISES;
   const defaults = new Set(base.map(e => e.n));
-  const custom = (DB.exercises || []).filter(e => !defaults.has(e.n) && !renameTo(e.n));
+  const custom = (DB.exercises || []).filter(e => !defaults.has(e.n) && !renameTo(e.n) && !isCardio(e.n));   // 유산소는 따로 묶음
   const next = base.map(e => ({ ...e })).concat(custom);
   if (JSON.stringify(next) !== JSON.stringify(DB.exercises)) { DB.exercises = next; save(); }
 }
@@ -262,6 +265,33 @@ function beep(times) {
     }
   } catch (e) { }
 }
+// 유산소: 엑셀 [활동] 시트로 감 (거리·시간·강도·장소). 이름은 [활동] 종류 목록과 같게
+const CARDIO = ["트레드밀", "자전거", "걷기", "러닝", "등산", "수영", "기타"];
+function isCardio(name) { return CARDIO.includes(name); }
+function secText(sec) {
+  if (sec == null) return "";
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = Math.round(sec % 60);
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}
+// "9:30" / "9.30" / "930" / "45"(분) / "1:05:27" → 초
+function parseSec(t) {
+  t = String(t || "").trim().replace(/\./g, ":"); if (!t) return null;
+  if (/^\d{3,4}$/.test(t)) t = t.slice(0, -2) + ":" + t.slice(-2);
+  const p = t.split(":").map(Number); if (p.some(isNaN)) return null;
+  return p.length === 1 ? p[0] * 60 : p.length === 2 ? p[0] * 60 + p[1] : p[0] * 3600 + p[1] * 60 + p[2];
+}
+function cardioText(c) {
+  if (!c) return "";
+  const pace = c.km && c.sec ? ` · ${secText(c.sec / c.km)}/km` : "";
+  return [c.km ? fmt(c.km) + "km" : "", secText(c.sec), c.level || ""].filter(Boolean).join(" · ") + pace;
+}
+function cardioHistory(ex) {
+  const out = [];
+  for (const s of DB.sessions) for (const e of s.entries) if (e.ex === ex && e.cardio) out.push({ date: s.date, ...e });
+  return out.sort((a, b) => b.date < a.date ? -1 : 1);
+}
+// 운동 기록 한 줄 요약 (웨이트/유산소 공통)
+function entryText(e) { return e.cardio ? cardioText(e.cardio) : setsText(e); }
 // 특정 운동의 과거 기록(최신순). 진행 중 세션 제외
 function exHistory(ex) {
   const out = [];
@@ -300,6 +330,7 @@ function render() {
   else if (view === "exercise") renderExercise();
   else if (view === "detail") renderDetail();
   else if (view === "planEdit") renderPlanEdit();
+  else if (view === "cardio") renderCardio();
 }
 
 /* ===================== 홈 ===================== */
@@ -310,7 +341,7 @@ function renderHome() {
   h(`
   <div class="top"><div class="t">헬스일지</div><span class="dim small" id="offl"></span><button class="sm ghost" onclick="openSettings()">⚙</button></div>
   <div class="body">
-    ${cur ? `<div class="card"><div class="dim small">${md(cur.date)} 시작한 운동이 진행 중 · ${cur.entries.filter(e => e.rows.some(r => r.done)).length}개 운동 함</div>
+    ${cur ? `<div class="card"><div class="dim small">${md(cur.date)} 시작한 운동이 진행 중 · ${cur.entries.filter(e => e.cardio ? e.cardio.done : e.rows.some(r => r.done)).length}개 운동 함</div>
       <button class="big warn mt" onclick="go('session')">이어하기 →</button>
       <div class="row mt" style="gap:8px"><button style="flex:1" onclick="finishSession()">여기까지 저장</button><button style="flex:1;color:var(--bad)" onclick="cancelSession()">버리기</button></div></div>` : homeStart()}
     ${unsyncedCount() || hasExMemo() ? `<div class="card row"><div style="flex:1"><div style="font-weight:700">${unsyncedCount() ? `엑셀로 안 보낸 기록 ${unsyncedCount()}일` : "엑셀로 메모 보내기"}</div><div class="dim small">집 Wi-Fi + PC 서버 켜져 있을 때</div></div>
@@ -318,7 +349,7 @@ function renderHome() {
     <h3>지난 기록</h3>
     ${sessions.map(s => `<div class="sess" data-hold="holdDeleteSession:${s.id}" onclick="showDetail('${s.id}')">
         <div class="d">${md(s.date)}${s.start && s.end ? `<div class="dim" style="font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap">${hm(s.start)}–${hm(s.end)}<br>${Math.round((s.end - s.start) / 60000)}분</div>` : ""}</div>
-        <div class="s">${s.entries.map(e => esc(e.ex) + " " + (e.sets.length ? fmt(Math.max(...e.sets.map(x => x.kg))) + "kg×" + e.sets.length : "")).join(" · ")}</div>
+        <div class="s">${s.entries.map(e => esc(e.ex) + " " + (e.cardio ? [e.cardio.km ? fmt(e.cardio.km) + "km" : "", secText(e.cardio.sec)].filter(Boolean).join(" ") : e.sets.length ? fmt(Math.max(...e.sets.map(x => x.kg))) + "kg×" + e.sets.length : "")).join(" · ")}</div>
         <div class="dim">›</div></div>`).join("") || `<div class="dim">아직 없음</div>`}
   </div>
   <div class="foot row">
@@ -359,7 +390,7 @@ function renderDetail() {
   <div class="body">
     ${s.memo ? `<div class="card"><div class="dim small">📝 오늘 메모</div><div style="margin-top:4px;white-space:pre-wrap">${esc(s.memo)}</div></div>` : ""}
     ${s.entries.map(e => `<div class="card"><div style="font-size:19px;font-weight:700">${esc(e.ex)}</div>${exMemo(e.ex) ? `<div class="pin">📌 ${esc(exMemo(e.ex))}</div>` : ""}
-      <div class="hist"><b>${setsText(e)}</b>${e.memo ? "<br>" + esc(e.memo) : ""}</div></div>`).join("")}
+      <div class="hist"><b>${entryText(e)}</b>${e.memo ? "<br>" + esc(e.memo) : ""}</div></div>`).join("")}
     <button class="acc" style="width:100%;margin-bottom:10px" onclick="newPlan('${s.id}')">📋 이 날 운동으로 계획 만들기</button>
     <div class="dim small">${timeText(s) ? timeText(s) + " · " : ""}${s.fromExcel ? "엑셀에서 가져옴" : (DB.synced || []).includes(s.id) ? "엑셀에 보냄 ✓" : "엑셀에 아직 안 보냄"}</div>
   </div>`);
@@ -405,6 +436,12 @@ function renderSession() {
     <div class="dim small" id="elapsed"></div></div>
   <div class="body list">
     ${cur.entries.map((e, i) => {
+      if (e.cardio) {
+        const last = cardioHistory(e.ex)[0];
+        return `<button class="${e.cardio.done ? "done" : ""}" data-hold="holdRemoveEntry:${i}" onclick="openExercise(${i})">
+          <span class="chk">${e.cardio.done ? "✓" : ""}</span>
+          <span class="n">🏃 ${esc(e.ex)}<div class="dim small" style="font-weight:500">${e.cardio.done ? cardioText(e.cardio) : last ? "지난번 " + cardioText(last.cardio) : "유산소 · 거리·시간"}</div></span></button>`;
+      }
       const done = e.rows.filter(r => r.done && r.type !== "W").length, total = e.rows.filter(r => r.type !== "W").length;
       const finished = done && done >= total, started = !finished && e.rows.some(r => r.done);
       const sub = done ? doneText(e) : started ? "워밍업 완료" : e.plan ? "🎯 " + planTargetText(e.plan) : (exHistory(e.ex)[0] ? "지난번 " + setsText(exHistory(e.ex)[0]) : "첫 기록");
@@ -423,8 +460,9 @@ function renderSession() {
   </div>`);
   tickElapsed(); tickRest();
 }
-function doneText(e) { return setsText(rowsToEntry(e)); }
+function doneText(e) { return entryText(rowsToEntry(e)); }
 function rowsToEntry(e) {
+  if (e.cardio) return { ex: e.ex, cardio: e.cardio.done ? { km: e.cardio.km, sec: e.cardio.sec, level: e.cardio.level || "", place: e.cardio.place || "" } : null, sets: [], warm: null, memo: e.memo };
   const w = e.rows.find(r => r.type === "W" && r.done);
   return { ex: e.ex, warm: w ? { kg: w.kg, reps: w.reps } : null, sets: e.rows.filter(r => r.type !== "W" && r.done).map(r => ({ kg: r.kg, reps: r.reps })), memo: e.memo };
 }
@@ -439,7 +477,7 @@ function cancelSession() {
   cur = null; saveCur(); restEnd = null; go("home");
 }
 function finishSession() {
-  const entries = cur.entries.map(rowsToEntry).filter(e => e.sets.length || e.warm);
+  const entries = cur.entries.map(rowsToEntry).filter(e => e.sets.length || e.warm || e.cardio);
   if (!entries.length) { if (!confirm("완료한 세트가 없어요. 그냥 닫을까요?")) return; cur = null; saveCur(); return go("home"); }
   DB.sessions.push({ id: cur.id, date: cur.date, routine: cur.routine, start: cur.start, end: cur.lastDone || Date.now(), entries, memo: cur.memo || "" });
   if (cur.planId) DB.donePlans = [...new Set([...donePlans(), cur.planId])];
@@ -450,7 +488,9 @@ function pickExercise(afterExercise) {
   const inSession = new Set((view === "planEdit" ? pe.items : cur.entries).map(e => e.ex));
   const recent = [], seen = new Set();
   for (const s of DB.sessions.slice().sort((a, b) => b.date < a.date ? -1 : 1)) for (const e of s.entries) if (!seen.has(e.ex)) { seen.add(e.ex); recent.push(e.ex); }
-  const groups = { "최근 한 운동": recent.slice(0, 12).map(n => exInfo(n)) };
+  const forPlan = view === "planEdit";
+  const groups = { "최근 한 운동": recent.filter(n => !(forPlan && isCardio(n))).slice(0, 12).map(n => exInfo(n)) };
+  if (!forPlan) groups["유산소"] = CARDIO.map(n => ({ n }));
   for (const e of DB.exercises) (groups[e.p] = groups[e.p] || []).push(e);
   const chip = e => `<button class="sm pick ${inSession.has(e.n) ? "in" : ""}" onclick="addExercise('${esc(e.n)}')">${esc(e.n)}${inSession.has(e.n) ? " ✓" : ""}</button>`;
   openModal(`${Object.keys(groups).filter(p => groups[p].length).map(p => `<h3>${p}</h3><div class="row" style="flex-wrap:wrap;gap:8px">${groups[p].map(chip).join("")}</div>`).join("")}
@@ -461,6 +501,11 @@ function pickExercise(afterExercise) {
 }
 function addExercise(name) {
   if (!name) return;
+  if (isCardio(name) && view !== "planEdit") {
+    const last = cardioHistory(name)[0];
+    cur.entries.push({ ex: name, rows: [], memo: "", cardio: last ? { ...last.cardio, done: false } : { km: null, sec: null, level: "", place: "", done: false } });
+    saveCur(); closeModal(); return openExercise(cur.entries.length - 1);
+  }
   if (!DB.exercises.find(e => e.n === name)) { DB.exercises.push({ n: name, p: "기타", t: "", step: 2.5, rep: "" }); save(); }
   if (view === "planEdit") { pe.items.push(planItemFromHistory(name)); closeModal(); return renderPlanEdit(); }
   cur.entries.push(makeEntry(name, 3, DB.settings.rest));
@@ -477,6 +522,7 @@ function sessionMemo() {
 /* ===================== 운동 화면 (핵심) ===================== */
 function openExercise(i) {
   exIdx = i; infoOpen = false; const e = cur.entries[i];
+  if (e.cardio) return go("cardio");
   sel = e.rows.findIndex(r => !r.done); if (sel < 0) sel = e.rows.length - 1;
   go("exercise");
 }
@@ -626,16 +672,17 @@ function nextExercise() {
   else { go("session"); pickExercise(true); }
 }
 function exMenu() {
-  const e = cur.entries[exIdx], hs = exHistory(e.ex).slice(0, 5);
+  const e = cur.entries[exIdx], hs = e.cardio ? cardioHistory(e.ex).slice(0, 5) : exHistory(e.ex).slice(0, 5);
+  if (e.cardio) saveCardioFields();
   openModal(`${e.plan ? `<div class="plan" style="margin:4px 0 0">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
-    <h3>최근 기록</h3><div class="hist">${hs.map(x => `${md(x.date)} <b>${setsText(x)}</b>`).join("<br>") || "없음"}</div>
+    <h3>최근 기록</h3><div class="hist">${hs.map(x => `${md(x.date)} <b>${entryText(x)}</b>`).join("<br>") || "없음"}</div>
     <h3>📌 이 운동 메모 <span class="dim" style="font-weight:500">· 다음에도 계속 보임</span></h3>
     <textarea id="exmemo" placeholder="머신 번호, 시트 높이, 자세 주의점 …">${esc(exMemo(e.ex))}</textarea>
     <h3>오늘 메모 <span class="dim" style="font-weight:500">· 이번 기록에만</span></h3>
     <textarea id="memo" placeholder="오늘 느낌, 다음에 할 것">${esc(e.memo)}</textarea>
     <div class="row mt"><button class="acc" style="flex:1" onclick="saveMemo()">메모 저장</button></div>
-    <h3>세트</h3>
-    <div class="row" style="flex-wrap:wrap"><button style="flex:1 1 45%" onclick="closeModal();copyPrev()">위 세트 값 복사</button><button style="flex:1 1 45%" onclick="resetRow()">완료 취소</button><button style="flex:1 1 100%" onclick="removeRow()">선택한 세트 삭제</button></div>
+    ${e.cardio ? "" : `<h3>세트</h3>
+    <div class="row" style="flex-wrap:wrap"><button style="flex:1 1 45%" onclick="closeModal();copyPrev()">위 세트 값 복사</button><button style="flex:1 1 45%" onclick="resetRow()">완료 취소</button><button style="flex:1 1 100%" onclick="removeRow()">선택한 세트 삭제</button></div>`}
     <h3>운동</h3>
     <div class="row"><button style="flex:1;color:var(--bad)" onclick="removeExercise()">이 운동 오늘 빼기</button></div>`,
     { head: `<div style="font-size:18px;font-weight:700">${esc(e.ex)}</div>` });
@@ -644,7 +691,7 @@ function saveMemo() {
   const e = cur.entries[exIdx];
   e.memo = $("#memo").value;
   setExMemo(e.ex, $("#exmemo").value);
-  saveCur(); closeModal(); toast("저장"); renderExercise();
+  saveCur(); closeModal(); toast("저장"); render();
 }
 function removeRow() {
   const e = cur.entries[exIdx]; if (e.rows.length <= 1) return;
@@ -655,6 +702,49 @@ function removeRow() {
 function resetRow() { cur.entries[exIdx].rows[sel].done = false; saveCur(); closeModal(); renderExercise(); }
 function removeExercise() {
   cur.entries.splice(exIdx, 1); saveCur(); closeModal(); go("session");
+}
+
+/* ===================== 유산소 화면 ===================== */
+// 기계에 나온 거리·시간을 끝나고 옮겨 적는 화면. 지난번 값이 미리 들어가 있음
+function renderCardio() {
+  keepAwake(true);
+  const e = cur.entries[exIdx], c = e.cardio, last = cardioHistory(e.ex)[0];
+  h(`
+  <div class="top"><button class="sm ghost" onclick="saveCardioFields();go('session')">‹ 목록</button><div class="t">${exIdx + 1}/${cur.entries.length}</div>
+    <button class="sm ghost" style="font-size:22px;padding:4px 16px" onclick="exMenu()">⋯</button></div>
+  <div class="body">
+    <div class="exname">🏃 ${esc(e.ex)}</div>
+    <div class="info"><div class="l1">${last ? `지난번 ${md(last.date)} <b>${cardioText(last.cardio)}</b>` : "첫 기록"}</div></div>
+    <h3>거리 km <span class="dim" style="font-weight:500">(없으면 비워두기)</span></h3>
+    ${numStep("cKm", c.km == null ? "" : fmt(c.km), 0.1, { ph: "0.0" })}
+    <h3>시간 <span class="dim" style="font-weight:500">분:초 · 9.30 이나 930 도 됨</span></h3>
+    <div class="nstep"><button type="button" onclick="bumpTime(-60)">−</button>
+      <input type="text" inputmode="decimal" id="cTime" value="${secText(c.sec)}" placeholder="9:30">
+      <button type="button" onclick="bumpTime(60)">＋</button></div>
+    <h3>강도</h3>
+    <div class="row" style="gap:8px">${["가볍게", "보통", "힘들게"].map(l => `<button style="flex:1;min-height:48px" class="${c.level === l ? "acc" : ""}" onclick="saveCardioFields();cur.entries[exIdx].cardio.level=cur.entries[exIdx].cardio.level==='${l}'?'':'${l}';saveCur();renderCardio()">${l}</button>`).join("")}</div>
+    <h3>장소</h3>
+    <input type="text" id="cPlace" placeholder="예) 스포애니 트레드밀" value="${esc(c.place || "")}">
+  </div>
+  <div class="foot">
+    <button class="big ok" onclick="doneCardio()">${c.done ? "수정 완료" : "기록 ✓"}</button>
+  </div>`);
+}
+function bumpTime(d) { const inp = $("#cTime"); const v = parseSec(inp.value) || 0; inp.value = secText(Math.max(0, v + d)); }
+function saveCardioFields() {
+  const c = cur.entries[exIdx].cardio; if (!$("#cTime")) return;
+  const km = parseFloat($("#cKm").value);
+  c.km = isNaN(km) || km <= 0 ? null : Math.round(km * 100) / 100;
+  c.sec = parseSec($("#cTime").value);
+  c.place = $("#cPlace").value.trim();
+  saveCur();
+}
+function doneCardio() {
+  saveCardioFields();
+  const c = cur.entries[exIdx].cardio;
+  if (!c.km && !c.sec) return toast("거리나 시간을 적어주세요");
+  c.done = true; cur.lastDone = Date.now(); saveCur(); vibrate(30);
+  nextExercise();
 }
 
 /* ===================== 휴식 타이머 ===================== */
@@ -683,10 +773,10 @@ function restBar() {
 function restFull() {
   if (!restEnd || !cur || restMode !== "full" || view !== "exercise") return "";
   const e = cur.entries[exIdx], r = e.rows[sel], done = e.rows.every(x => x.done);
-  const pl = !done && plateText(e.ex, r.kg);
+  const pl = !done && plateText(e.ex, r.kg), total = e.rows.filter(x => x.type !== "W").length;
   const middle = done
     ? `<div class="acts"><button onclick="restMin();addRow()">＋ 한 세트 더</button><button class="acc" onclick="restMin();nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동" : "운동 고르기"}</button></div>`
-    : `<div class="next"><div class="t">다음 · ${r.type === "W" ? "워밍업" : r.type + "세트"}${pl ? ` · <b>${pl}</b>` : ""}</div><div class="g">
+    : `<div class="next"><div class="t">다음 · ${r.type === "W" ? `워밍업 <span style="font-weight:500">(본세트 ${total})</span>` : `<span class="setno">${r.type}<span> / ${total}세트</span></span>`}${pl ? ` · <b>${pl}</b>` : ""}</div><div class="g">
         <div class="cell"><button onclick="adj('kg',-1)">−</button><div class="v">${fmt(r.kg)}<small>kg</small></div><button onclick="adj('kg',1)">＋</button></div>
         <div class="cell"><button onclick="adj('reps',-1)">−</button><div class="v">${r.reps}<small>회</small></div><button onclick="adj('reps',1)">＋</button></div></div></div>`;
   return `<div class="restfull" id="rest"><div class="lab">휴식</div><div class="n" id="restN"></div>
@@ -779,7 +869,7 @@ function planItemFromHistory(ex) {
 function newPlan(fromSessionId) {
   const s = fromSessionId && DB.sessions.find(x => x.id === fromSessionId);
   pe = { id: "my-" + Date.now(), date: addDays(1), title: "", note: "", items: [] };
-  if (s) pe.items = s.entries.filter(e => e.sets.length).map(e => { const t = topSet(e.sets); return { ex: e.ex, warm: e.warm ? { ...e.warm } : undefined, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
+  if (s) pe.items = s.entries.filter(e => e.sets.length && !e.cardio).map(e => { const t = topSet(e.sets); return { ex: e.ex, warm: e.warm ? { ...e.warm } : undefined, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
   go("planEdit");
 }
 function editPlan(id) { const p = (DB.myPlans || []).find(x => x.id === id); if (!p) return; pe = JSON.parse(JSON.stringify(p)); go("planEdit"); }
@@ -879,15 +969,16 @@ function planTargetText(it) {
 //  · 아직 안 보낸 기록은 건드리지 않음
 function pullExcel() {
   return fetch("api/excel", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j || !Array.isArray(j.records) || !j.records.length) return;
+    if (!j || !Array.isArray(j.records) || !j.records.length) return;   // 엑셀을 못 읽었으면 폰 기록을 건드리지 않음
     if (applyExcel(j) && (view === "home" || view === "detail")) render();
   }).catch(() => { });
 }
 function applyExcel(j) {
   const before = JSON.stringify([DB.sessions, DB.exercises]);
   if (Array.isArray(j.exercises) && j.exercises.length) { DB.xlExercises = j.exercises; syncExerciseList(); }
-  const byDate = {};
+  const byDate = {}, actByDate = {};
   for (const r of j.records) (byDate[r.date] = byDate[r.date] || []).push(r);
+  for (const a of j.activities || []) { (actByDate[a.date] = actByDate[a.date] || []).push(a); byDate[a.date] = byDate[a.date] || []; }
   const synced = new Set(DB.synced || []);
   const isOld = s => s.fromExcel || synced.has(s.id);
   const prevByDate = {};
@@ -903,8 +994,10 @@ function applyExcel(j) {
       id: prev ? prev.id : "xl-" + d, date: d, routine: prev ? prev.routine : "excel",
       start: t ? t.start : prev ? prev.start : null, end: t ? t.end : prev ? prev.end : null,
       memo: dayMemo, fromExcel: prev ? !!prev.fromExcel : true,   // 엑셀에서만 온 기록은 계속 '엑셀 것'으로 (다시 보내지 않게)
-      entries: rows.map(r => ({ ex: r.ex, warm: r.warm, sets: r.sets,
-        memo: tag && r.memo.startsWith(tag) ? r.memo.slice(tag.length).replace(/^ · /, "") : r.memo })),
+      entries: (actByDate[d] || []).map(a => ({ ex: a.ex, warm: null, sets: [], memo: a.memo,
+          cardio: { km: a.km, sec: a.sec, level: a.level || "", place: a.place || "" } }))
+        .concat(rows.map(r => ({ ex: r.ex, warm: r.warm, sets: r.sets,
+          memo: tag && r.memo.startsWith(tag) ? r.memo.slice(tag.length).replace(/^ · /, "") : r.memo }))),
     });
   }
   DB.sessions = next;
@@ -943,7 +1036,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v28 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v29 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -1027,6 +1120,7 @@ window.addEventListener("popstate", () => {
   else if (restEnd && restMode === "full" && view === "exercise") restMin();
   else if (view === "exercise") go("session");
   else if (view === "planEdit") { pe = null; go("home"); }
+  else if (view === "cardio") { saveCardioFields(); go("session"); }
   else if (view === "session" || view === "detail") go("home");
   window.history.pushState({ guard: 1 }, "");
 });

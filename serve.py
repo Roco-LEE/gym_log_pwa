@@ -32,7 +32,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self.send_json(404, {"error": "테스트 모드에서는 엑셀을 내려주지 않아요"})
         try:
             out = sync_excel.read_excel()
-            print(f"엑셀 → 폰: 운동 {len(out['exercises'])}개, 기록 {len(out['records'])}줄")
+            print(f"엑셀 → 폰: 운동 {len(out['exercises'])}개, 기록 {len(out['records'])}줄, 활동 {len(out['activities'])}줄")
             self.send_json(200, out)
         except PermissionError:
             self.send_json(409, {"error": "엑셀 파일이 열려 있어요"})
