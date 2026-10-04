@@ -21,6 +21,7 @@
   #app{height:100vh; height:100dvh; display:flex; flex-direction:column;}
   .top{display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line); flex:0 0 auto;}
   .top .t{font-size:18px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .top button{min-height:44px; min-width:44px;}
   .body{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px;}
   .foot{flex:0 0 auto; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg);}
   button{font:inherit; color:inherit; white-space:nowrap; background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:17px; font-weight:600;}
@@ -43,7 +44,16 @@
   .list button.done .chk{background:var(--ok); border-color:var(--ok); color:#062;}
 
   /* 운동 화면 */
-  .exname{font-size:30px; font-weight:800; line-height:1.15;}
+  .exname{font-size:28px; font-weight:800; line-height:1.15;}
+  /* 운동 화면 정보 줄: 평소엔 두 줄로 접고, 누르면 펼침 */
+  .info{margin-top:6px; padding:8px 10px; border-radius:12px; background:var(--card); font-size:15px; color:var(--dim); position:relative;}
+  .info b{color:var(--fg); font-weight:700;}
+  .info .l1, .info .l2{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:18px;}
+  .info .l2{font-size:13px; color:var(--warn); margin-top:2px;}
+  .info .chev{position:absolute; right:10px; top:9px; color:var(--dim); font-size:13px;}
+  .info.open .l1, .info.open .l2{white-space:normal;}
+  .info .pin, .info .plan{margin-top:6px;}
+  .info .last{margin-top:6px; font-size:14px;}
   .last{margin-top:6px; font-size:15px; color:var(--dim);}
   .plan{margin-top:8px; font-size:15px; color:var(--acc); background:rgba(79,156,255,.12); border:1px solid rgba(79,156,255,.35); border-radius:12px; padding:8px 10px;}
   .plan b{color:var(--fg); font-weight:700;}
@@ -59,33 +69,34 @@
   .set .lab.w{color:var(--warn);}
   .set .v{flex:1; font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.5px;}
   .set .v small{font-size:16px; color:var(--dim); font-weight:600; margin:0 3px;}
+  .set.sel .v .tap{border-bottom:2px dotted var(--dim); padding:0 1px;}
+  .set .v input{width:3.6em; font-size:28px; font-weight:800; text-align:center; padding:2px; border-radius:10px; border:2px solid var(--acc); background:var(--bg); color:var(--fg); font-variant-numeric:tabular-nums;}
   .set .st{width:30px; height:30px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800;}
   .set.done .st{background:var(--ok); border-color:var(--ok); color:#062;}
   .ctrl{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
-  .stepper{background:var(--card); border-radius:16px; padding:10px 10px 8px; text-align:center; display:flex; flex-direction:column; gap:8px;}
-  .stepper .lbl{font-size:12px; color:var(--dim); font-weight:700; letter-spacing:.5px;}
-  .stepper .val{font-size:44px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1; margin:-4px 0 0;}
-  .stepper .val small{font-size:15px; color:var(--dim); font-weight:600; margin-left:2px;}
+  .stepper{background:var(--card); border-radius:16px; padding:8px; display:flex; flex-direction:column; gap:6px;}
+  .stepper .lbl{display:flex; align-items:center; justify-content:space-between; min-height:44px; padding-left:4px; font-size:14px; color:var(--dim); font-weight:700;}
+  .stepper .lbl button{min-height:44px; min-width:64px; padding:0 10px; font-size:15px; border-radius:10px; font-variant-numeric:tabular-nums;}
   .stepper .bt{display:flex; gap:8px;}
-  .stepper .bt button{flex:1; font-size:30px; height:52px; padding:0; border-radius:12px; line-height:1;}
-  .chips{display:flex; gap:5px;}
-  .chips button{flex:1; min-width:0; padding:0; height:30px; font-size:12px; border-radius:15px; font-variant-numeric:tabular-nums;}
+  .stepper .bt button{flex:1; font-size:32px; height:56px; padding:0; border-radius:12px; line-height:1;}
+  .stepgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .stepgrid button{height:56px; font-size:18px; font-variant-numeric:tabular-nums;}
   .nstep{display:flex; gap:6px; align-items:center; margin-top:4px;}
   .nstep button{flex:0 0 44px; height:46px; padding:0; font-size:24px; border-radius:12px; line-height:1;}
   .nstep input{flex:1; min-width:0; text-align:center; font-size:20px; font-weight:700; padding:10px 4px; font-variant-numeric:tabular-nums;}
   .fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .stepper .val input{width:100%; font-size:36px; font-weight:800; text-align:center; padding:2px; border-radius:10px; border:2px solid var(--acc); background:var(--card2); color:var(--fg); font-variant-numeric:tabular-nums;}
-  .chips button.on{background:var(--acc); border-color:var(--acc); color:#fff;}
   button.pick{font-size:16px; padding:0 14px; height:46px; line-height:46px; display:inline-flex; align-items:center;}
   button.pick.on{background:var(--acc); border-color:var(--acc); color:#fff;}
   button.pick.in{opacity:.5;}
   button.sm.ok{font-size:14px;}
-  .rest{position:fixed; inset:0; background:rgba(5,8,12,.94); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:50;}
-  .rest .n{font-size:120px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1;}
-  .rest .n.over{color:var(--warn);}
-  .rest .l{font-size:18px; color:var(--dim); margin-bottom:12px;}
-  .rest .next{margin-top:14px; font-size:20px; color:var(--fg);}
-  .rest button{margin-top:28px; width:70%;}
+  .restbar{display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:6px 6px 6px 14px; border-radius:16px; background:var(--card2); border:1px solid var(--line); position:relative; overflow:hidden;}
+  .restbar .prog{position:absolute; left:0; bottom:0; height:3px; background:var(--acc); transition:width .25s linear;}
+  .restbar .lab{font-size:14px; color:var(--dim); font-weight:700;}
+  .restbar .n{flex:1; font-size:40px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1;}
+  .restbar button{min-width:52px; height:48px; padding:0 8px; font-size:15px; border-radius:12px;}
+  .restbar.over{background:rgba(255,179,71,.16); border-color:var(--warn);}
+  .restbar.over .n, .restbar.over .lab{color:var(--warn);}
+  .restbar.over .prog{background:var(--warn);}
   .hidden{display:none !important;}
   .hist{font-size:14px; color:var(--dim); margin-top:8px; line-height:1.6;}
   .hist b{color:var(--fg); font-weight:600;}
@@ -380,13 +391,13 @@ function renderSession() {
     }).join("")}
     <button class="ghost" style="width:100%;border-style:dashed" onclick="pickExercise()">＋ 운동 추가</button>
     <button class="ghost" style="width:100%;border-style:dashed;margin-top:8px;text-align:left;font-size:15px;white-space:normal" onclick="sessionMemo()">📝 ${cur.memo ? esc(cur.memo) : "오늘 메모 (헬스장 상황, 컨디션 …)"}</button>
-    <div class="dim small" style="text-align:center;margin-top:6px">운동을 꾹 누르면 목록에서 뺌</div>
+    <div class="dim small" style="text-align:center;margin-top:6px">운동을 꾹 누르면 목록에서 뺌 · 오늘 운동을 버리려면 홈에서</div>
   </div>
-  <div class="foot row">
-    <button class="ghost" style="color:var(--bad)" onclick="cancelSession()">취소</button>
-    <button class="big ok" style="flex:1" onclick="finishSession()">운동 끝 · 저장</button>
+  <div class="foot">
+    ${restBar()}
+    <button class="big ok" onclick="finishSession()">운동 끝 · 저장</button>
   </div>`);
-  tickElapsed();
+  tickElapsed(); tickRest();
 }
 function doneText(e) { return setsText(rowsToEntry(e)); }
 function rowsToEntry(e) {
@@ -401,14 +412,14 @@ function tickElapsed() {
 }
 function cancelSession() {
   if (!confirm("오늘 운동을 저장하지 않고 취소할까요?")) return;
-  cur = null; saveCur(); go("home");
+  cur = null; saveCur(); restEnd = null; go("home");
 }
 function finishSession() {
   const entries = cur.entries.map(rowsToEntry).filter(e => e.sets.length || e.warm);
   if (!entries.length) { if (!confirm("완료한 세트가 없어요. 그냥 닫을까요?")) return; cur = null; saveCur(); return go("home"); }
   DB.sessions.push({ id: cur.id, date: cur.date, routine: cur.routine, start: cur.start, end: cur.lastDone || Date.now(), entries, memo: cur.memo || "" });
   if (cur.planId) DB.donePlans = [...new Set([...donePlans(), cur.planId])];
-  save(); cur = null; saveCur(); toast("저장됨"); go("home");
+  save(); cur = null; saveCur(); restEnd = null; toast("저장됨"); go("home");
 }
 // 운동 고르기: 누르면 바로 그 운동으로 들어감 (자리 상황 봐가며 하나씩 고르게)
 function pickExercise(afterExercise) {
@@ -441,7 +452,7 @@ function sessionMemo() {
 
 /* ===================== 운동 화면 (핵심) ===================== */
 function openExercise(i) {
-  exIdx = i; const e = cur.entries[i];
+  exIdx = i; infoOpen = false; const e = cur.entries[i];
   sel = e.rows.findIndex(r => !r.done); if (sel < 0) sel = e.rows.length - 1;
   go("exercise");
 }
@@ -454,45 +465,68 @@ function setExMemo(ex, txt) {
   save();
 }
 function curStep(ex) { return DB.steps[ex] || exInfo(ex).step || 2.5; }
+let infoOpen = false;   // 운동 화면 정보 줄 펼침 여부
 function renderExercise() {
   keepAwake(true);
   const e = cur.entries[exIdx], info = exInfo(e.ex), hs = exHistory(e.ex), last = hs[0], best = bestKg(e.ex);
   const r = e.rows[sel];
   const allDone = e.rows.every(x => x.done);
   const step = curStep(e.ex);
+  const lastTxt = last ? `지난번 ${md(last.date)} <b>${setsText(last)}</b>` : "첫 기록";
+  const notes = [exMemo(e.ex) && "📌 " + exMemo(e.ex), e.plan && e.plan.note].filter(Boolean);
+  const pills = `${best != null ? `<span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${info.rep}회</span>` : ""}`;
+  // 접힘: 🎯 목표(없으면 지난번) 한 줄 + 메모 한 줄 / 펼침: 메모·계획·지난번 전부
+  const infoHtml = infoOpen
+    ? `<div class="info open" onclick="infoOpen=false;renderExercise()"><span class="chev">접기 ▴</span>
+        ${exMemo(e.ex) ? `<div class="pin" onclick="event.stopPropagation();exMenu()">📌 ${esc(exMemo(e.ex))}</div>` : ""}
+        ${e.plan ? `<div class="plan">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
+        <div class="last">${lastTxt} ${pills}</div></div>`
+    : `<div class="info" onclick="infoOpen=true;renderExercise()"><span class="chev">▾</span>
+        <div class="l1">${e.plan ? `🎯 <b>${planTargetText(e.plan)}</b>` : lastTxt}</div>
+        ${notes.length ? `<div class="l2">${esc(notes.join(" · "))}</div>` : ""}</div>`;
+  // 선택된 세트는 숫자를 눌러 직접 입력, 다른 세트는 누르면 선택
+  const num = (x, i, k) => {
+    const v = k === "kg" ? `${fmt(x.kg)}<small>kg</small>` : `${x.reps}<small>회</small>`;
+    return i === sel ? `<span class="tap" onclick="event.stopPropagation();typeVal('${k}')">${v}</span>` : v;
+  };
   h(`
   <div class="top"><button class="sm ghost" onclick="go('session')">‹ 목록</button><div class="t">${exIdx + 1}/${cur.entries.length}</div>
     <button class="sm ghost" style="font-size:22px;padding:4px 16px" onclick="exMenu()">⋯</button></div>
-  <div class="body" style="padding-bottom:0">
+  <div class="body" style="padding-bottom:8px">
     <div class="exname">${esc(e.ex)}</div>
-    ${exMemo(e.ex) ? `<div class="pin" onclick="exMenu()">📌 ${esc(exMemo(e.ex))}</div>` : ""}
-    ${e.plan ? `<div class="plan">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
-    <div class="last">${last ? `지난번 ${md(last.date)} <b>${setsText(last)}</b>` : "첫 기록"}${best != null ? ` <span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${info.rep}회</span>` : ""}</div>
+    ${infoHtml}
     <div class="sets">
       ${e.rows.map((x, i) => `<div class="set ${i === sel ? "sel" : ""} ${x.done ? "done" : ""}" onclick="selectRow(${i})">
         <div class="lab ${x.type === "W" ? "w" : ""}">${x.type === "W" ? "W" : x.type}</div>
-        <div class="v">${fmt(x.kg)}<small>kg</small>${x.reps}<small>회</small></div>
+        <div class="v">${num(x, i, "kg")} ${num(x, i, "reps")}</div>
         <div class="st">${x.done ? "✓" : ""}</div></div>`).join("")}
-      <button class="ghost sm" style="width:100%;border-style:dashed" onclick="addRow()">＋ 세트</button>
+      <button class="ghost" style="width:100%;border-style:dashed;min-height:44px" onclick="addRow()">＋ 세트</button>
     </div>
   </div>
   <div class="foot">
+    ${restBar()}
     <div class="ctrl">
       <div class="stepper">
-        <div class="lbl">무게 <span style="font-weight:500">(눌러서 직접 입력)</span></div><div class="val" onclick="typeVal('kg')">${fmt(r.kg)}<small>kg</small></div>
+        <div class="lbl">무게<button onclick="pickStep()">±${fmt(step)}</button></div>
         <div class="bt"><button onclick="adj('kg',-1)">−</button><button onclick="adj('kg',1)">＋</button></div>
-        <div class="chips">${[1, 1.25, 2.5, 5, 10].map(s => `<button class="${s === step ? "on" : ""}" onclick="setStep(${s})">${s}</button>`).join("")}</div>
       </div>
       <div class="stepper">
-        <div class="lbl">횟수</div><div class="val" onclick="typeVal('reps')">${r.reps}<small>회</small></div>
+        <div class="lbl">횟수</div>
         <div class="bt"><button onclick="adj('reps',-1)">−</button><button onclick="adj('reps',1)">＋</button></div>
-        <div class="chips">${[8, 10, 12, 15].map(n => `<button class="${n === r.reps ? "on" : ""}" onclick="setReps(${n})">${n}</button>`).join("")}</div>
       </div>
     </div>
     ${allDone
       ? `<div class="row"><button class="big" style="flex:1" onclick="addRow()">＋ 한 세트 더</button><button class="big acc" style="flex:1.3" onclick="nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동 →" : "운동 고르기 →"}</button></div>`
       : `<div class="row"><button class="big ghost" style="flex:0 0 auto;width:auto;padding:20px 14px;font-size:16px" onclick="endExercise()">이 운동<br>끝</button><button class="big ok" style="flex:1" onclick="completeSet()">${r.done ? "수정 완료" : (r.type === "W" ? "워밍업 완료 ✓" : r.type + "세트 완료 ✓")}</button></div>`}
   </div>`);
+  tickRest();
+}
+// 무게 증감 단위 고르기 (운동별로 기억)
+function pickStep() {
+  const e = cur.entries[exIdx], cs = curStep(e.ex);
+  openModal(`<div class="stepgrid">${[1, 1.25, 2, 2.5, 3.75, 5, 10].map(v => `<button class="${v === cs ? "acc" : ""}" onclick="setStep(${v});closeModal()">±${v}</button>`).join("")}</div>
+    <div class="dim small mt">이 운동에서만 바뀌고, 다음에도 기억해요</div>`,
+    { head: `<div style="font-size:18px;font-weight:700">무게 증감 단위</div><div class="dim small">${esc(e.ex)}</div>` });
 }
 function selectRow(i) { sel = i; renderExercise(); }
 function adj(k, d) {
@@ -501,7 +535,7 @@ function adj(k, d) {
   else r.reps = Math.max(0, r.reps + d);
   saveCur(); renderExercise();
 }
-// 큰 숫자를 누르면 입력칸으로 바뀜. 입력 끝나면(엔터/포커스 아웃) 반영
+// 선택된 세트의 숫자를 누르면 그 자리가 입력칸으로 바뀜. 입력 끝나면(엔터/포커스 아웃) 반영
 function typeVal(k) {
   const e = cur.entries[exIdx], r = e.rows[sel];
   const box = event.currentTarget;
@@ -515,7 +549,6 @@ function typeVal(k) {
   inp.addEventListener("blur", done);
   inp.addEventListener("keydown", ev => { if (ev.key === "Enter") inp.blur(); });
 }
-function setReps(n) { cur.entries[exIdx].rows[sel].reps = n; saveCur(); renderExercise(); }
 function setStep(s) { DB.steps[cur.entries[exIdx].ex] = s; save(); renderExercise(); }
 function copyPrev() {
   const e = cur.entries[exIdx]; if (sel === 0) return;
@@ -587,28 +620,38 @@ function removeExercise() {
 }
 
 /* ===================== 휴식 타이머 ===================== */
-let restT, restEnd;
+// 화면을 덮지 않고 하단에 띠로 보임 → 쉬는 동안 다음 세트 무게를 바로 바꿀 수 있음.
+// 다른 운동·목록으로 넘어가도 계속 돌고, 끝나면 진동+소리.
+let restT = null, restEnd = null, restTotal = 0, restFired = false;
 function startRest(sec) {
-  restEnd = Date.now() + sec * 1000;
-  const e = cur.entries[exIdx], nxt = e.rows[sel];
-  const done = e.rows.every(x => x.done);
-  const nextTxt = done ? "계획한 세트 끝" : `다음: ${nxt.type === "W" ? "워밍업" : nxt.type + "세트"} ${fmt(nxt.kg)}kg × ${nxt.reps}회`;
-  const div = document.createElement("div"); div.className = "rest"; div.id = "rest";
-  div.innerHTML = `<div class="l">휴식</div><div class="n" id="restN">${sec}</div><div class="next">${nextTxt}</div>
-    <div class="row" style="margin-top:20px;gap:8px"><button class="sm" onclick="restAdd(-15)">−15초</button><button class="sm" onclick="restAdd(15)">＋15초</button></div>
-    ${done ? `<div class="row" style="margin-top:24px;width:90%"><button class="big" style="flex:1" onclick="endRest();addRow()">＋ 한 세트 더</button><button class="big acc" style="flex:1" onclick="endRest();nextExercise()">${exIdx + 1 < cur.entries.length ? "다음 운동 →" : "운동 고르기 →"}</button></div>
-    <button class="ghost" style="margin-top:16px;width:auto" onclick="endRest()">타이머 닫기</button>`
-    : `<button class="big" onclick="endRest()">건너뛰기</button>`}`;
-  document.body.appendChild(div);
-  clearInterval(restT); let fired = false;
-  restT = setInterval(() => {
-    const left = Math.ceil((restEnd - Date.now()) / 1000), n = $("#restN"); if (!n) return clearInterval(restT);
-    n.textContent = left > 0 ? left : "+" + (-left);
-    if (left <= 0 && !fired) { fired = true; n.classList.add("over"); vibrate([300, 100, 300, 100, 300]); beep(3); }
-  }, 250);
+  restEnd = Date.now() + sec * 1000; restTotal = sec * 1000; restFired = false;
+  renderExercise();
 }
-function restAdd(s) { restEnd += s * 1000; }
-function endRest() { clearInterval(restT); const d = $("#rest"); if (d) d.remove(); renderExercise(); }
+function restAdd(s) { if (!restEnd) return; restEnd += s * 1000; restTotal = Math.max(1000, restTotal + s * 1000); restFired = restEnd <= Date.now(); tickRest(); }
+function endRest() { restEnd = null; clearInterval(restT); restT = null; render(); }
+function mmss(sec) { const a = Math.abs(sec); return `${Math.floor(a / 60)}:${String(a % 60).padStart(2, "0")}`; }
+function restBar() {
+  if (!restEnd || !cur) return "";
+  return `<div class="restbar" id="rest"><span class="lab">휴식</span><span class="n" id="restN"></span>
+    <button onclick="restAdd(-15)">−15</button><button onclick="restAdd(15)">＋15</button><button onclick="endRest()" aria-label="휴식 끝">✕</button>
+    <div class="prog" id="restP"></div></div>`;
+}
+function tickRest() {
+  clearInterval(restT); restT = null;
+  if (!restEnd) return;
+  const f = () => {
+    if (!restEnd) return;
+    const left = Math.ceil((restEnd - Date.now()) / 1000);
+    if (left <= 0 && !restFired) { restFired = true; vibrate([300, 100, 300, 100, 300]); beep(3); }
+    if (left < -300) return endRest();   // 5분 넘게 지나면 정리
+    const bar = $("#rest"), n = $("#restN"), pr = $("#restP");
+    if (!bar) return;
+    n.textContent = left > 0 ? mmss(left) : "+" + mmss(-left);
+    bar.classList.toggle("over", left <= 0);
+    pr.style.width = Math.max(0, Math.min(100, (restEnd - Date.now()) / restTotal * 100)) + "%";
+  };
+  f(); restT = setInterval(f, 250);
+}
 
 /* ===================== 계획 (plan.json) ===================== */
 // PC 의 plan.json 을 온라인일 때 받아 폰에 저장. 헬스장에선 저장된 걸 그대로 씀.
@@ -784,7 +827,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v23 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v24 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
@@ -865,7 +908,6 @@ function closeModal() { const m = $("#modal"); if (m) m.remove(); }
 window.history.pushState({ guard: 1 }, "");
 window.addEventListener("popstate", () => {
   if ($("#modal")) closeModal();
-  else if ($("#rest")) endRest();
   else if (view === "exercise") go("session");
   else if (view === "planEdit") { pe = null; go("home"); }
   else if (view === "session" || view === "detail") go("home");
