@@ -91,6 +91,8 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
                 memos.append({"date": r["date"], "memo": m})
         e1 = [e1rm(s["kg"], s["reps"]) for r in rows for s in r["sets"]]
         e1 = [x for x in e1 if x]
+        top = max((s["kg"] for s in last["sets"]), default=None)
+        hit = bool(rng and reps and all(x >= rng[1] for x in reps))
         stats.append({
             "ex": ex,
             "part": info.get("p", ""),
@@ -98,8 +100,10 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
             "days_since": (tgt - datetime.date.fromisoformat(last["date"])).days,
             "last_warm": last["warm"],
             "last_sets": last["sets"],
-            "last_top_kg": max((s["kg"] for s in last["sets"]), default=None),
-            "hit_top_of_range": bool(rng and reps and all(x >= rng[1] for x in reps)),
+            "last_top_kg": top,
+            "hit_top_of_range": hit,
+            # 더블 프로그레션으로 이번에 쓸 수 있는 최대 무게 (LLM 이 계산하지 않게)
+            "next_kg_max": None if top is None else round(top + (info.get("step") or 0), 2) if hit else top,
             "best_e1rm": max(e1) if e1 else None,
             "sessions_recent": sum(1 for r in rows if r["date"] >= since),
             "memos": memos,
@@ -138,8 +142,9 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
 SYSTEM = """당신은 일반인 헬스 이용자를 돕는 보수적인 근력운동 코치다. 의학적 진단이나 치료 조언은 하지 않는다.
 사용자 메시지는 target_date 하루의 운동 계획을 짜기 위한 JSON 이다. stats 의 숫자는 이미 계산된 값이니 그대로 믿는다.
 - exercises 목록에 있는 운동만 쓴다.
-- 진행 규칙(더블 프로그레션): stats 의 hit_top_of_range 가 true 면(지난번 모든 세트가 rep 범위 상단 도달) 그 운동의 step 만큼만 올리고,
-  아니면 무게는 그대로 두고 횟수를 채운다. 한 번에 step 보다 크게 올리지 않는다. 지난 기록이 없는 운동은 kg 를 null 로 둔다.
+- 진행 규칙(더블 프로그레션): kg 는 stats 의 next_kg_max 를 절대 넘지 않는다. next_kg_max 는 지난번 모든 세트가 rep 범위 상단에
+  도달했으면(hit_top_of_range=true) 지난 무게 + step, 아니면 지난 무게 그대로다. 무게를 유지하는 운동은 횟수를 채우는 게 목표다.
+  지난 기록이 없는 운동은 kg 를 null 로 둔다.
 - profile.injuries, 운동별 memos, recent_day_memos, request.note 에 통증·부상·컨디션 저하가 있으면 관련 부위는 증량하지 않고,
   부담 큰 운동은 빼거나 가벼운 대안으로 바꾸고, 그 이유를 warnings 에 적는다.
 - request.focus 부위를 우선하되(null 이면 part_last_trained 를 보고 가장 오래 쉰 부위 위주), 최근 48시간 안에 한 부위는 피한다.
@@ -191,6 +196,129 @@ def call_llm(ctx, model=MODEL):
     return json.loads(text), meta
 
 
+# ===================== 가드레일 (LLM 뒤에서 파이썬이 강제) =====================
+MAX_SETS, MAX_REPS = 6, 30          # [기록] 시트가 6세트까지
+DEFAULT_REST = 90
+SEC_PER_SET = 40                    # 세트 수행 시간 대략
+PAIN = re.compile(r"허리|통증|아픔|아프|아팠|뻐근|부상|시림|시린")
+BODY_PARTS = {"허리": {"하체", "등", "코어"}, "무릎": {"하체"}, "어깨": {"어깨", "가슴", "등"},
+              "팔꿈치": {"팔", "가슴"}, "손목": {"팔", "가슴"}}
+ALL_PARTS = {"하체", "등", "코어", "어깨", "가슴", "팔"}
+PAIN_MEMO_DAYS = 7                  # 그날 메모는 최근 7일 것만 G3 근거로
+
+
+def has_pain(text):
+    """통증·부상 키워드가 있나. '통증 없음'·'허리 통증 없었음' 처럼 바로 뒤에 '없'이 오면 부정으로 보고 넘김"""
+    text = text or ""
+    return any("없" not in text[m.end():m.end() + 8] for m in PAIN.finditer(text))
+
+
+def pain_parts(text):
+    """통증 문장이 가리키는 부위들. 몸 부위 단어가 없으면 전 부위(보수적)"""
+    if not has_pain(text):
+        return set()
+    parts = set().union(*(v for k, v in BODY_PARTS.items() if k in text))
+    return parts or set(ALL_PARTS)
+
+
+def est_minutes(items, stats_by_ex):
+    """예상 시간(분): (본 세트 + 워밍업 1) × (휴식 + 40초). warm 이 없으면 앱이 지난번 워밍업을 쓰므로 그것도 셈"""
+    sec = 0
+    for it in items:
+        warm = it.get("warm")
+        if warm is None:
+            warm = (stats_by_ex.get(it["ex"]) or {}).get("last_warm")
+        sec += (it["sets"] + (1 if warm else 0)) * ((it.get("rest") or DEFAULT_REST) + SEC_PER_SET)
+    return sec / 60
+
+
+def validate(out, ctx):
+    """LLM 출력(out)을 규칙대로 고친 사본과 고친 내역 [(규칙, 내용)] 을 돌려줌.
+    고친 건 항목 note 앞에 [자동수정], warnings 에 '[자동수정] …' 으로 붙여 앱 카드에서 보이게 한다.
+    G1 운동목록에 없는 운동 → 삭제
+    G2 kg ≤ 지난번 최고 무게 + step
+    G3 통증 메모(오늘 요청·최근 7일 그날 메모·그 운동의 마지막 메모)가 가리키는 부위는 증량 0
+       (profile.injuries 는 늘 있는 지병이라 근거로 안 씀 — 쓰면 영영 증량이 안 됨. LLM 에게 맥락으로만 줌)
+    G4 sets 1~6, reps 1~30 (플랭크처럼 범위가 30 넘는 운동은 그 상단까지)
+    G5 예상 시간 ≤ 시간 예산 × 1.2 → 뒤 항목부터 세트 축소
+    G6 그날 이미 한 운동과 겹침 → 경고만
+    G7 지난번에 rep 범위 상단을 못 채웠으면 무게 유지 (kg ≤ next_kg_max) — G2 만으론 '미달인데 +step' 을 못 잡음"""
+    out = json.loads(json.dumps(out))       # 깊은 복사
+    fixes = []
+    ex_info = {e["name"]: e for e in ctx["exercises"]}
+    stats = {s["ex"]: s for s in ctx["stats"]}
+    tgt = datetime.date.fromisoformat(ctx["target_date"])
+
+    def fix(it, rule, msg):
+        fixes.append((rule, f"{it['ex']}: {msg}" if it else msg))
+        if it is not None:
+            it["note"] = f"[자동수정] {msg}" + (" · " + it["note"] if it.get("note") else "")
+
+    # G3 근거: 오늘 요청 + 최근 7일 그날 메모 → 부위 단위
+    frozen = pain_parts(ctx["request"].get("note"))
+    for m in ctx.get("recent_day_memos", []):
+        if (tgt - datetime.date.fromisoformat(m["date"])).days <= PAIN_MEMO_DAYS:
+            frozen |= pain_parts(m["memo"])
+
+    items = []
+    for it in out["plan"]["items"]:
+        info = ex_info.get(it["ex"])
+        if not info:                                                         # G1
+            fix(None, "G1", f"운동목록에 없는 '{it['ex']}' 삭제")
+            continue
+        st = stats.get(it["ex"])
+
+        rng = rep_range(info.get("rep_range"))                               # G4
+        rmax = max(MAX_REPS, rng[1] if rng else 0)
+        if not 1 <= it["sets"] <= MAX_SETS:
+            new = min(max(it["sets"], 1), MAX_SETS)
+            fix(it, "G4", f"세트 {it['sets']}→{new}")
+            it["sets"] = new
+        if not 1 <= it["reps"] <= rmax:
+            new = min(max(it["reps"], 1), rmax)
+            fix(it, "G4", f"횟수 {it['reps']}→{new}")
+            it["reps"] = new
+        if it.get("kg") is not None and it["kg"] < 0:
+            fix(it, "G4", f"무게 {it['kg']}→0")
+            it["kg"] = 0
+
+        if it.get("kg") is not None and st and st["last_top_kg"] is not None:
+            last = st["last_top_kg"]
+            cap2 = last + (info.get("step") or 0)                            # G2
+            if it["kg"] > cap2:
+                fix(it, "G2", f"{it['kg']}kg→{cap2:g}kg (한 번에 step {info.get('step'):g}kg 까지만)")
+                it["kg"] = cap2
+            if not st["hit_top_of_range"] and it["kg"] > last:               # G7
+                fix(it, "G7", f"{it['kg']:g}kg→{last:g}kg (지난번 상단 {rng[1] if rng else '?'}회 미달 → 무게 유지)")
+                it["kg"] = last
+            own = st["memos"][0]["memo"] if st["memos"] and st["memos"][0]["date"] == st["last_date"] else ""
+            if it["kg"] > last and (info["part"] in frozen or has_pain(own)):  # G3
+                why = "그 운동 지난 메모" if has_pain(own) else "통증 메모"
+                fix(it, "G3", f"{it['kg']:g}kg→{last:g}kg ({why} 있어 증량 보류)")
+                it["kg"] = last
+
+        if any(d["ex"] == it["ex"] for d in ctx.get("done_on_target_date", [])):  # G6
+            fixes.append(("G6", f"{it['ex']}: 그날 이미 한 운동과 겹침"))
+        items.append(it)
+
+    budget = ctx["request"]["time_budget_min"] * 1.2                         # G5
+    before = est_minutes(items, stats)
+    while est_minutes(items, stats) > budget:
+        cut = next((it for it in reversed(items) if it["sets"] > 1), None)
+        if not cut:
+            break
+        cut["sets"] -= 1
+        fixes.append(("G5", f"{cut['ex']}: 시간 초과로 세트 -1 → {cut['sets']}세트"))
+    if est_minutes(items, stats) < before:
+        fixes.append(("G5", f"예상 {before:.0f}분 → {est_minutes(items, stats):.0f}분 (예산 {ctx['request']['time_budget_min']}분)"))
+
+    out["plan"]["items"] = items
+    out["warnings"] = out.get("warnings", []) + [f"[자동수정] {r} {m}" if r != "G6" else f"[주의] {m}" for r, m in fixes]
+    if fixes:
+        out["plan"]["note"] = f"⚠ 자동수정 {sum(r != 'G6' for r, _ in fixes)}건 · " + out["plan"]["note"]
+    return out, fixes
+
+
 def to_plan(out, target_date):
     """LLM 출력 → plan.json 의 계획 하나 (앱 형식). warm 이 null 이면 빼서 '지난번 워밍업대로', repsText 가 비면 뺌"""
     items = []
@@ -237,6 +365,11 @@ def main():
         sys.exit(f"API 오류 {e.status_code}: {e.message}")
     print(f"※ {meta['model']} · 입력 {meta['usage']['input']} / 출력 {meta['usage']['output']} 토큰 · {meta['ms'] / 1000:.1f}초",
           file=sys.stderr)
+    out, fixes = validate(out, ctx)
+    for rule, msg in fixes:
+        print(f"※ {rule} {msg}", file=sys.stderr)
+    if not fixes:
+        print("※ 가드레일: 고칠 것 없음", file=sys.stderr)
     print(json.dumps({"plan": to_plan(out, a.date), "rationale": out["rationale"], "warnings": out["warnings"]},
                      ensure_ascii=False, indent=2))
     if not a.dry_run:
