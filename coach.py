@@ -6,6 +6,8 @@
        → LLM 없이 컨텍스트(LLM 에 보낼 JSON)만 출력. 통계가 맞는지 눈으로 확인용
    python coach.py --date 2026-10-08 --focus 하체 --note "허리 약간 뻐근" --dry-run
        → LLM 으로 계획을 받아 출력만 (plan.json 은 안 씀)
+   python coach.py --date 2026-10-08 --focus 하체 --note "허리 약간 뻐근"
+       → 계획을 plan.json 에 병합 저장 (id ai-날짜, 같은 id 는 교체·손으로 쓴 계획은 유지, 쓰기 전 백업/plan_*.json)
 
 - 통계(지난 세트·증량 신호·e1RM·부위별 마지막 날짜)는 파이썬이 계산해서 준다. LLM 에게 계산을 시키지 않는다.
 - 개인 설정(목표·부상·주당 횟수·시간)은 coach_profile.json (git 제외). 없으면 기본값.
@@ -13,13 +15,18 @@
   (설계의 '도구 강제 호출'은 Sonnet 5.5·Opus 5.5 에서 400 이라, 모델을 바꿔도 그대로 되는 쪽으로)
 - API 키는 OS 환경변수 ANTHROPIC_API_KEY 에만. 이 폴더에 두지 않는다 (serve.py 가 폴더를 서빙함).
 """
-import argparse, datetime, json, os, re, sys, time
+import argparse, datetime, glob, json, os, re, shutil, sys, time
 import sync_excel
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROFILE = os.path.join(HERE, "coach_profile.json")
-MODEL = "claude-haiku-4-5"   # 저가로 시작, 계획이 아쉬우면 --model claude-sonnet-5-5
-MAX_TOKENS = 8000
+PLAN = os.path.join(HERE, "plan.json")
+PLAN_BACKUPS = 10            # 백업 폴더에 남길 plan_*.json 수
+# 2026-10-06 Haiku 4.5 와 비교: Haiku 는 허리 뻐근한데 RDL 을 넣는 등 판단·사실 오류 → Sonnet 5.5 (1회 약 5센트)
+MODEL = "claude-sonnet-5-5"
+MAX_TOKENS = 16000
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+FALLBACK_MODELS = {"claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-5", "claude-fable-5-1"}
 WINDOW_DAYS = 42          # 최근 범위: 6주 또는 최근 12세션 중 짧은 쪽
 WINDOW_SESSIONS = 12
 MEMOS_PER_EX = 3          # 운동별로 보여줄 최근 메모 수
@@ -180,13 +187,16 @@ def call_llm(ctx, model=MODEL):
     """컨텍스트 → (LLM 출력 dict, 메타{model, stop_reason, usage, ms})"""
     import anthropic                        # --context 만 쓸 때는 SDK 없어도 되게
     client = anthropic.Anthropic()          # ANTHROPIC_API_KEY 환경변수
+    # 안전 분류기가 거절하면 서버가 권장 모델로 다시 돌림 (Sonnet 5.5 등 최신 모델만 지원, Haiku 는 안 붙임)
+    fb = {"betas": [FALLBACK_BETA], "fallbacks": "default"} if model in FALLBACK_MODELS else {}
     t0 = time.time()
-    r = client.messages.create(
+    r = client.beta.messages.create(
         model=model,
         max_tokens=MAX_TOKENS,
         system=SYSTEM,
         messages=[{"role": "user", "content": json.dumps(ctx, ensure_ascii=False, separators=(",", ":"))}],
         output_config={"format": {"type": "json_schema", "schema": plan_schema([e["name"] for e in ctx["exercises"]])}},
+        **fb,
     )
     meta = {"model": r.model, "stop_reason": r.stop_reason, "ms": int((time.time() - t0) * 1000),
             "usage": {"input": r.usage.input_tokens, "output": r.usage.output_tokens}}
@@ -333,6 +343,40 @@ def to_plan(out, target_date):
             "note": out["plan"]["note"], "items": items}
 
 
+def merge_plans(doc, plan):
+    """plan.json 내용(doc)에 계획 하나를 넣은 새 doc 과 '교체'/'추가'.
+    같은 id(ai-날짜)는 그 자리에서 교체, 손으로 쓴 계획·지난 날짜 계획은 그대로 둠"""
+    plans = list((doc or {}).get("plans") or [])
+    i = next((k for k, p in enumerate(plans) if p.get("id") == plan["id"]), None)
+    if i is None:
+        plans.append(plan)
+    else:
+        plans[i] = plan
+    return {**(doc or {}), "plans": plans}, "추가" if i is None else "교체"
+
+
+def save_plan(plan, path=PLAN, backup_dir=None):
+    """plan.json 에 병합 저장. 쓰기 전 기존 파일을 백업 폴더에 plan_YYYYMMDD-HHMMSS.json 으로 (최근 10개).
+    반환: ('교체'|'추가', 백업 경로 또는 None)"""
+    backup_dir = backup_dir or sync_excel.BACKUP_DIR
+    doc, bak = None, None
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)                  # 깨진 파일이면 여기서 멈춤 (덮어쓰지 않음)
+        os.makedirs(backup_dir, exist_ok=True)
+        bak = os.path.join(backup_dir, f"plan_{datetime.datetime.now():%Y%m%d-%H%M%S}.json")
+        shutil.copy2(path, bak)
+        for old in sorted(glob.glob(os.path.join(backup_dir, "plan_*.json")))[:-PLAN_BACKUPS]:
+            os.remove(old)
+    doc, action = merge_plans(doc, plan)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)                       # 중간에 끊겨도 반쪽짜리 plan.json 이 안 남게
+    return action, bak
+
+
 def main():
     ap = argparse.ArgumentParser(description="LLM 운동 코치 — 다음 운동 계획 → plan.json")
     ap.add_argument("--date", default=datetime.date.today().isoformat(), help="계획 날짜 YYYY-MM-DD (기본: 오늘)")
@@ -370,10 +414,16 @@ def main():
         print(f"※ {rule} {msg}", file=sys.stderr)
     if not fixes:
         print("※ 가드레일: 고칠 것 없음", file=sys.stderr)
-    print(json.dumps({"plan": to_plan(out, a.date), "rationale": out["rationale"], "warnings": out["warnings"]},
-                     ensure_ascii=False, indent=2))
-    if not a.dry_run:
-        print("※ plan.json 저장은 아직 없음 (§8-5). 지금은 --dry-run 과 같음", file=sys.stderr)
+    plan = to_plan(out, a.date)
+    # 앱은 모르는 필드는 무시함 → 근거·경고도 계획에 같이 남겨 둠 (카드엔 note 만 보임)
+    plan["rationale"], plan["warnings"] = out["rationale"], out["warnings"]
+    plan["model"] = meta["model"]
+    print(json.dumps(plan, ensure_ascii=False, indent=2))
+    if a.dry_run:
+        print("※ --dry-run: plan.json 은 안 씀", file=sys.stderr)
+        return
+    action, bak = save_plan(plan)
+    print(f"※ plan.json 에 {plan['id']} {action}" + (f" (이전 파일 백업: {bak})" if bak else ""), file=sys.stderr)
 
 
 if __name__ == "__main__":
