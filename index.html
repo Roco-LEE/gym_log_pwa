@@ -544,7 +544,7 @@ function renderExercise() {
   const step = curStep(e.ex);
   const lastTxt = last ? `지난번 ${md(last.date)} <b>${setsText(last)}</b>` : "첫 기록";
   const notes = [exMemo(e.ex) && "📌 " + exMemo(e.ex), e.plan && e.plan.note].filter(Boolean);
-  const pills = `${best != null ? `<span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${info.rep}회</span>` : ""}`;
+  const pills = `${best != null ? `<span class="pill">최고 ${fmt(best)}kg</span>` : ""}${info.rep ? `<span class="pill">목표 ${repUnit(info.rep, e.ex)}</span>` : ""}`;
   // 접힘: 🎯 목표(없으면 지난번) 한 줄 + 메모 한 줄 / 펼침: 메모·계획·지난번 전부
   const infoHtml = infoOpen
     ? `<div class="info open" onclick="infoOpen=false;renderExercise()"><span class="chev">접기 ▴</span>
@@ -956,10 +956,13 @@ function holdRemovePlanItem(i) {
   i = +i; if (!confirm(`"${pe.items[i].ex}" 을(를) 계획에서 뺄까요?`)) return;
   pe.items.splice(i, 1); renderPlanEdit();
 }
+// 플랭크처럼 목표가 초('30-60초')인 운동은 '회' 대신 '초'
+function isSecEx(ex) { return /초$/.test(exInfo(ex).rep || ""); }
+function repUnit(text, ex) { text = String(text); return /초$/.test(text) ? text : text + (isSecEx(ex) ? "초" : "회"); }
 function planTargetText(it) {
   const warm = it.warm ? `W ${fmt(it.warm.kg)}×${it.warm.reps} · ` : "";
   const w = it.kg == null ? "" : fmt(it.kg) + "kg × ";
-  return `${warm}${w}${it.repsText || it.reps}회${it.sets ? " · " + it.sets + "세트" : ""}`;
+  return `${warm}${w}${repUnit(it.repsText || it.reps, it.ex)}${it.sets ? " · " + it.sets + "세트" : ""}`;
 }
 
 /* ===================== 엑셀 → 폰 (받아오기) ===================== */

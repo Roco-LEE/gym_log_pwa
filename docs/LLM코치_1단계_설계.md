@@ -165,8 +165,10 @@
 4. `validate()` G1~G7 + 단위 테스트(가짜 LLM 출력으로 규칙별 1개씩) ✅ 2026-10-06
 5. `plan.json` 병합 저장 → 폰에서 카드 뜨는지 확인 → **실제로 2~3회 이 계획으로 운동**
    - ✅ 2026-10-06 병합 저장(테스트 7개)·브라우저(모바일 크기)에서 홈 카드 확인. 기본 모델 Sonnet 5.5 + `fallbacks: "default"`. ⏳ 폰 확인·실제 운동 2~3회 남음
-   - 알려진 문제: 플랭크처럼 초 단위 운동이 카드에 `30~60초회`로 보임 (앱 `planTargetText`가 '회'를 항상 붙임)
-6. `coach_log` 쌓기 (나중 Eval 정답 세트 재료)
+   - ✅ 플랭크처럼 초 단위 운동이 `30~60초회`로 보이던 것 수정 (앱 `repUnit()`, sw v30)
+6. `coach_log` 쌓기 (나중 Eval 정답 세트 재료) ✅ 2026-10-06
+   - 호출 1회 = `coach_log/YYYYMMDD-HHMMSS_<계획날짜>.json`: args·`context`(입력 전체)·`raw_output`(LLM 원문)·`llm_output`(고치기 전)·`fixes`·`final_plan`·`meta`(모델·토큰·지연·`cost_usd`)·`prompt_version`(시스템 프롬프트+스키마 해시)·`saved`·`error`
+   - dry-run·실패(키 오류·max_tokens 등)도 남김. 테스트 `tests/test_log.py`(가짜 LLM으로 main 끝까지, API 비용 없음)
 
 **1.5단계(선택)**: `serve.py`에 `POST /api/coach {date, focus, note}` → `coach.make_plan()` → `plan.json` 저장 후 계획 반환. 앱 홈에 "AI 계획 받기" 버튼(온라인일 때만), 성공하면 `fetchPlans()` 재호출. API 실패·오프라인이면 기존 계획 그대로(fallback) + 토스트.
 

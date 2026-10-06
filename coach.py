@@ -14,8 +14,9 @@
 - LLM 출력은 구조화 출력(output_config.format = JSON 스키마)으로 받는다. 운동 이름은 스키마 enum.
   (설계의 '도구 강제 호출'은 Sonnet 5.5·Opus 5.5 에서 400 이라, 모델을 바꿔도 그대로 되는 쪽으로)
 - API 키는 OS 환경변수 ANTHROPIC_API_KEY 에만. 이 폴더에 두지 않는다 (serve.py 가 폴더를 서빙함).
+- 호출마다 coach_log/ 에 입력 컨텍스트·LLM 원문·가드레일 수정·최종 계획·토큰·비용·지연을 남긴다 (git 제외, 서빙 차단).
 """
-import argparse, datetime, glob, json, os, re, shutil, sys, time
+import argparse, datetime, glob, hashlib, json, os, re, shutil, sys, time
 import sync_excel
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -184,7 +185,7 @@ def plan_schema(ex_names):
 
 
 def call_llm(ctx, model=MODEL):
-    """컨텍스트 → (LLM 출력 dict, 메타{model, stop_reason, usage, ms})"""
+    """컨텍스트 → (LLM 이 낸 원문 텍스트, 메타{model, stop_reason, usage, ms}). 파싱·stop_reason 판단은 호출한 쪽에서"""
     import anthropic                        # --context 만 쓸 때는 SDK 없어도 되게
     client = anthropic.Anthropic()          # ANTHROPIC_API_KEY 환경변수
     # 안전 분류기가 거절하면 서버가 권장 모델로 다시 돌림 (Sonnet 5.5 등 최신 모델만 지원, Haiku 는 안 붙임)
@@ -200,10 +201,37 @@ def call_llm(ctx, model=MODEL):
     )
     meta = {"model": r.model, "stop_reason": r.stop_reason, "ms": int((time.time() - t0) * 1000),
             "usage": {"input": r.usage.input_tokens, "output": r.usage.output_tokens}}
-    if r.stop_reason != "end_turn":         # refusal·max_tokens 면 스키마대로가 아닐 수 있음
-        raise RuntimeError(f"LLM 응답이 끝까지 오지 않음: stop_reason={r.stop_reason}")
-    text = next(b.text for b in r.content if b.type == "text")
-    return json.loads(text), meta
+    text = "".join(b.text for b in r.content if b.type == "text")
+    return text, meta
+
+
+# ===================== 호출 로그 (coach_log/, git 제외) =====================
+# 나중에 Eval 정답 세트 재료: 같은 입력(context)으로 프롬프트·모델을 바꿔 다시 돌려 비교할 수 있게 전부 남김
+LOG_DIR = os.path.join(HERE, "coach_log")
+PRICES = {"claude-sonnet-5-5": (2, 10), "claude-haiku-4-5": (1, 5), "claude-opus-5-5": (4, 20)}   # $ / 1M 토큰 (입력, 출력)
+
+
+def cost_usd(model, usage):
+    """모델 ID 앞부분으로 단가를 찾아 대략 비용($). 표에 없으면 None"""
+    price = next((v for k, v in PRICES.items() if (model or "").startswith(k)), None)
+    if not price or not usage:
+        return None
+    return round((usage["input"] * price[0] + usage["output"] * price[1]) / 1e6, 5)
+
+
+def prompt_version():
+    """시스템 프롬프트·스키마 틀이 바뀌면 달라지는 짧은 해시 — 로그끼리 비교할 때 같은 프롬프트였는지"""
+    return hashlib.sha256((SYSTEM + json.dumps(plan_schema(["x"]), sort_keys=True)).encode("utf-8")).hexdigest()[:10]
+
+
+def write_log(entry, log_dir=None):
+    """호출 한 번 = coach_log/YYYYMMDD-HHMMSS_<계획날짜>.json 하나. 반환: 경로"""
+    log_dir = log_dir or LOG_DIR
+    os.makedirs(log_dir, exist_ok=True)
+    path = os.path.join(log_dir, f"{datetime.datetime.now():%Y%m%d-%H%M%S}_{entry['target_date']}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(entry, f, ensure_ascii=False, indent=2)
+    return path
 
 
 # ===================== 가드레일 (LLM 뒤에서 파이썬이 강제) =====================
@@ -398,18 +426,45 @@ def main():
 
     if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
         sys.exit("API 키가 없어요. setx ANTHROPIC_API_KEY \"<키>\" 후 새 터미널에서 실행하세요.")
+
+    log = {"ts": datetime.datetime.now().isoformat(timespec="seconds"), "target_date": a.date,
+           "args": {"focus": a.focus, "note": a.note, "time": a.time, "dry_run": a.dry_run},
+           "model_requested": a.model, "prompt_version": prompt_version(), "context": ctx}
+    try:
+        msg = run_coach(ctx, a, log)
+    except SystemExit as e:
+        log["error"] = str(e.code)
+        raise
+    except Exception as e:                    # 예상 못 한 오류도 입력·원문은 남김
+        log["error"] = repr(e)
+        raise
+    finally:
+        print(f"※ 로그: {write_log(log)}", file=sys.stderr)
+    print(msg, file=sys.stderr)
+
+
+def run_coach(ctx, a, log):
+    """LLM 호출 → 검증 → (저장). 진행하며 log 를 채움. 반환: 마지막 안내 문구"""
     import anthropic
     try:
-        out, meta = call_llm(ctx, a.model)
+        text, meta = call_llm(ctx, a.model)
     except anthropic.AuthenticationError:
         sys.exit("API 키가 틀렸어요. 환경변수 ANTHROPIC_API_KEY 를 확인하고 새 터미널에서 다시 실행하세요.")
     except anthropic.APIConnectionError:
         sys.exit("네트워크 오류 — 인터넷 연결 확인")
     except anthropic.APIStatusError as e:
         sys.exit(f"API 오류 {e.status_code}: {e.message}")
-    print(f"※ {meta['model']} · 입력 {meta['usage']['input']} / 출력 {meta['usage']['output']} 토큰 · {meta['ms'] / 1000:.1f}초",
-          file=sys.stderr)
+    meta["cost_usd"] = cost_usd(meta["model"], meta["usage"])
+    log.update(meta=meta, raw_output=text)
+    print(f"※ {meta['model']} · 입력 {meta['usage']['input']} / 출력 {meta['usage']['output']} 토큰 · "
+          f"{meta['ms'] / 1000:.1f}초 · 약 ${meta['cost_usd']}", file=sys.stderr)
+    if meta["stop_reason"] != "end_turn":      # refusal·max_tokens 면 스키마대로가 아닐 수 있음
+        sys.exit(f"LLM 응답이 끝까지 오지 않음: stop_reason={meta['stop_reason']}")
+    out = json.loads(text)
+    log["llm_output"] = out
+
     out, fixes = validate(out, ctx)
+    log["fixes"] = [{"rule": r, "msg": m} for r, m in fixes]
     for rule, msg in fixes:
         print(f"※ {rule} {msg}", file=sys.stderr)
     if not fixes:
@@ -418,13 +473,14 @@ def main():
     # 앱은 모르는 필드는 무시함 → 근거·경고도 계획에 같이 남겨 둠 (카드엔 note 만 보임)
     plan["rationale"], plan["warnings"] = out["rationale"], out["warnings"]
     plan["model"] = meta["model"]
+    log["final_plan"] = plan
     print(json.dumps(plan, ensure_ascii=False, indent=2))
     if a.dry_run:
-        print("※ --dry-run: plan.json 은 안 씀", file=sys.stderr)
-        return
+        log["saved"] = None
+        return "※ --dry-run: plan.json 은 안 씀"
     action, bak = save_plan(plan)
-    print(f"※ plan.json 에 {plan['id']} {action}" + (f" (이전 파일 백업: {bak})" if bak else ""), file=sys.stderr)
-
+    log["saved"] = action
+    return f"※ plan.json 에 {plan['id']} {action}" + (f" (이전 파일 백업: {bak})" if bak else "")
 
 if __name__ == "__main__":
     main()
