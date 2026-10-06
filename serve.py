@@ -7,7 +7,28 @@ import http.server, socket, os, json, traceback, sys
 import sync_excel
 PORT = 8123
 TEST = "--test" in sys.argv
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+# 같은 Wi-Fi 의 아무 기기나 받아 가면 안 되는 것들 → 404 (앱은 index.html·seed.json·plan.json·아이콘만 씀)
+PRIVATE_FILES = {"coach_profile.json", "local_config.json", "synced.json", "synced_test.json"}
+PRIVATE_DIRS = {"coach_log", "__pycache__", "docs"}
+PRIVATE_EXT = (".py", ".pyc", ".bat")
+
+def is_private(fs_path):
+    """실제 파일 경로 기준으로 판정 — 대소문자·%인코딩·끝의 점·8.3 짧은 이름으로 우회해도 같은 파일로 잡힘"""
+    try:
+        rel = os.path.relpath(os.path.realpath(fs_path), ROOT)
+    except ValueError:            # 다른 드라이브
+        return True
+    parts = os.path.normcase(rel).replace("\\", "/").split("/")
+    if parts[0] == "..":          # 폴더 밖
+        return True
+    if any(p.startswith(".") and p != "." for p in parts):   # .git, .gitignore, .env …
+        return True
+    if parts[0] in PRIVATE_DIRS:
+        return True
+    return parts[-1] in PRIVATE_FILES or parts[-1].endswith(PRIVATE_EXT)
 
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
@@ -23,6 +44,12 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def send_head(self):          # GET·HEAD 정적 파일 공통 입구
+        if is_private(self.translate_path(self.path)):
+            self.send_error(404)
+            return None
+        return super().send_head()
 
     def do_GET(self):
         if self.path.split("?")[0] != "/api/excel":

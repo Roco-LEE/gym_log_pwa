@@ -19,9 +19,22 @@ serve.py 가 /api/sync 로 받아서 호출하고, 앱에서 내보낸 JSON 파�
 import openpyxl, datetime, json, os, re, shutil, sys, zipfile, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-XLSX = os.environ.get("GYMLOG_XLSX") or os.path.join(HERE, "..", "헬스일지.xlsx")   # 다른 위치면 환경변수로
+
+
+def data_dir():
+    """헬스일지.xlsx·백업/ 이 있는 폴더: 환경변수 GYMLOG_DATA → local_config.json 의 data_dir (git 제외) → 앱 폴더의 상위"""
+    d = os.environ.get("GYMLOG_DATA")
+    cfg = os.path.join(HERE, "local_config.json")
+    if not d and os.path.exists(cfg):
+        with open(cfg, encoding="utf-8") as f:
+            d = json.load(f).get("data_dir")
+    return d or os.path.join(HERE, "..")
+
+
+DATA = data_dir()
+XLSX = os.environ.get("GYMLOG_XLSX") or os.path.join(DATA, "헬스일지.xlsx")
 SYNCED = os.path.join(HERE, "synced.json")
-BACKUP_DIR = os.path.join(HERE, "..", "백업")
+BACKUP_DIR = os.path.join(DATA, "백업")
 FIRST_ROW = 3       # 헤더 2줄
 MAX_SETS = 6
 PHONE_MARK = "[폰]"   # [운동목록] 메모에서 앱이 관리하는 구간의 시작 표시
@@ -49,10 +62,10 @@ def write_times(ws, row, s):
 def use_test_file():
     """테스트 모드: 진짜 헬스일지.xlsx 대신 헬스일지_테스트.xlsx 에 씀 (없으면 진짜 걸 복사해서 만듦)."""
     global XLSX, SYNCED, BACKUP_DIR
-    test = os.path.join(HERE, "..", "헬스일지_테스트.xlsx")
+    test = os.path.join(DATA, "헬스일지_테스트.xlsx")
     if not os.path.exists(test):
         shutil.copy2(XLSX, test)
-    XLSX, SYNCED, BACKUP_DIR = test, os.path.join(HERE, "synced_test.json"), os.path.join(HERE, "..", "백업_테스트")
+    XLSX, SYNCED, BACKUP_DIR = test, os.path.join(HERE, "synced_test.json"), os.path.join(DATA, "백업_테스트")
     return test
 
 

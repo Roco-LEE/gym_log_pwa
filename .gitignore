@@ -6,6 +6,10 @@ synced_test.json
 백업/
 백업_테스트/
 *.xlsx
+local_config.json
+# LLM 코치 — 개인 설정(부상 등)·호출 로그
+coach_profile.json
+coach_log/
 
 __pycache__/
 *.pyc
