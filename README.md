@@ -1,68 +1,195 @@
-# 헬스일지 🏋️
+<div align="center">
 
-헬스장에서 세트마다 무게·횟수를 찍는 **오프라인 운동 기록 앱**.
-HTML 파일 하나짜리 PWA라 폰 홈 화면에 설치하면 인터넷 없이 돌아가고, 집에 오면 버튼 한 번으로 엑셀에 쌓입니다.
+# 🏋️ 헬스일지
 
-기억이나 엑셀 수기 입력에 의존하다가, 안 쓰는 갤럭시 S9을 헬스 전용 기기로 삼으면서 만들었습니다.
+**헬스장 오프라인 운동 기록 PWA + LLM 운동 코치**
 
-<!-- 폰 스크린샷: docs/screenshot.png -->
+![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black) ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) ![Claude API](https://img.shields.io/badge/Claude%20API-D97757?style=flat-square&logo=claude&logoColor=white)
 
-## 기능
+</div>
 
-- 📴 **완전 오프라인** — 서비스워커 캐시 + 폰 로컬 저장. 유심 없는 공기계로도 됨
-- 🔢 **지난번 기록이 기본값** — 운동 들어가면 지난번 무게·횟수가 세트별로 미리 채워져 있음. 그대로 했으면 ✓만
-- 👍 **큰 버튼 위주** — 무게·횟수 −/＋ (무게는 운동별 증감 단위), 선택한 세트의 숫자를 누르면 직접 입력
-- ⏱️ **휴식 타이머 자동 시작** — 세트 완료하면 큰 화면으로 카운트다운, 그 화면에서 다음 세트 무게·횟수를 바로 고침. 줄이면 하단 띠로. 마지막 10초 깜빡임, 끝나면 진동+소리
-- 🔀 **세트 수 고정 안 함** — "이 운동 끝" / "＋ 한 세트 더"
-- 📋 **계획대로 진행** — 폰에서 바로 짜거나(지난 기록 복사도 됨), PC에 `plan.json`을 써두면 폰이 받아 캐시. 헬스장에선 오프라인으로 그 계획대로 (목표 무게·횟수·세트가 미리 채워지고, 운동별 메모가 뜸)
-- 🏃 **유산소** — 트레드밀·자전거·걷기 등은 거리·시간(9:30)·강도·장소로 기록, 페이스 자동. 엑셀 [활동] 시트로 감
-- 🎯 **운동은 하나씩 고름** — 계획 없이 시작하면 자리 상황 봐가며 다음 운동을 그때그때 선택
-- 🗓️ **밀린 계획** — 날짜가 지났는데 안 한 계획(2주 이내)은 접어서 남겨둠. 그대로 시작하거나 오늘로 옮기기
-- 🏋️ **한쪽 원판 표시** — 레그프레스(원판)·벤치·스쿼트·데드리프트는 선택한 세트 옆에 `한쪽 20+10`
-- 📌 **운동에 붙는 고정 메모** — 머신 번호·시트 높이처럼 다음에도 봐야 할 건 운동에 붙여두면 매번 맨 위에 뜸
-- 📝 **오늘 메모** — 그날 상황·컨디션 한 줄
-- 📊 **최고 무게 · 최근 5회 기록**
-- 🔙 폰 뒤로가기가 앱 안에서 동작, 화면 안 꺼짐(Wake Lock), 완전 검정 바탕 + 주황 포인트(AMOLED 배터리 절약)
-- 📥 **엑셀 동기화** — 집 Wi-Fi에서 PC로 전송 → `헬스일지.xlsx` [기록] 시트에 한 운동 = 한 줄 추가. 볼륨·1RM·대시보드는 시트 수식이 계산
-- 🔁 **엑셀 → 폰** — 앱을 열 때 서버가 켜져 있으면 엑셀 [운동목록]과 이미 보낸 기록을 받아와 맞춤. 엑셀에서 이름을 정정하거나 메모를 달아도 폰이 따라감 (아직 안 보낸 기록은 그대로)
-- 💾 JSON 내보내기 / 공유 / 가져오기 (폰 바꿀 때)
+<br />
 
-## 구성
+## 💁🏻‍♂️ 소개
 
-| 파일 | 역할 |
-| :--- | :--- |
-| `index.html` | 앱 전체 (HTML/CSS/JS 단일 파일, 의존성 없음) |
-| `sw.js` | 오프라인 캐시. `index.html`을 고치면 `VER`을 올려야 폰에 반영됨 |
-| `manifest.webmanifest`, `icon-*.png` | 홈 화면 설치용 |
-| `serve.py` | PC에서 폰에 보여주는 서버 + `/api/sync`(폰→엑셀) · `/api/excel`(엑셀→폰, `--test`에선 꺼짐) |
-| `sync_excel.py` | 앱 기록(JSON) → 엑셀 [기록] 시트 (`openpyxl`) |
-| `seed.json` | *(선택, git 제외)* 엑셀에 이미 있던 과거 기록. 첫 실행 때 한 번 들여옴 |
-| `plan.json` | *(선택, git 제외)* 미리 짜둔 운동 계획. 홈에 카드로 뜸 |
+> 헬스장에서 세트마다 무게·횟수를 기록하는 오프라인 앱.<br>
+> HTML 파일 하나짜리 PWA — 폰 홈 화면에 설치하면 인터넷 없이 동작하고, 집 Wi-Fi에서 버튼 한 번으로 엑셀에 쌓임.<br>
+> PC의 LLM 코치가 엑셀 기록을 읽어 다음 운동 계획을 생성하고, 폰은 그 계획을 받아 헬스장에서 오프라인으로 진행.
 
-기록은 폰 `localStorage`에 `{sessions:[{date, entries:[{ex, warm:{kg,reps}, sets:[{kg,reps}], memo}]}]}` 형태로 저장됩니다.
+- 기억·엑셀 수기 입력 대체 목적. 안 쓰는 갤럭시 S9을 헬스 전용 기기로 사용
+- 기록 원본은 엑셀(`헬스일지.xlsx`). 볼륨·1RM·대시보드는 시트 수식이 계산
+- 1인 사용 전제 — 서버·DB 없이 PC 한 대 + 폰 한 대
 
-## 실행 방법
+| **홈 · 오늘 계획** | **세트 기록** |
+| :---: | :---: |
+| <img width="280" alt="홈 화면" src="docs/screenshots/home.jpg"> | <img width="280" alt="세트 기록 화면" src="docs/screenshots/set.jpg"> |
+| **휴식 타이머** | **지난 기록** |
+| <img width="280" alt="휴식 타이머 화면" src="docs/screenshots/rest.jpg"> | <img width="280" alt="지난 기록 화면" src="docs/screenshots/history.jpg"> |
 
-```bash
-pip install openpyxl          # 엑셀 동기화 쓸 때만
-python serve.py               # → 폰에서 열기: http://<PC IP>:8123
-python serve.py --test        # 동기화를 헬스일지_테스트.xlsx 에 (연습용)
+<br />
+
+## 🦾 기능
+
+### 📴 오프라인 기록
+서비스워커 캐시 + 폰 로컬 저장. 유심 없는 공기계에서도 동작.
+
+### 🔢 지난 기록이 기본값
+운동 진입 시 지난번 무게·횟수가 세트별로 채워짐. 그대로 수행했으면 ✓만.
+
+### ⏱️ 휴식 타이머
+세트 완료 시 자동 시작. 타이머 화면에서 다음 세트 무게·횟수를 바로 수정. 마지막 10초 깜빡임, 종료 시 진동+소리.
+
+### 📋 계획대로 진행
+폰에서 작성(지난 기록 복사 가능)하거나 PC의 `plan.json`을 수신. 지난 계획은 2주간 "밀린 계획"으로 유지.
+
+### 🤖 LLM 운동 코치
+엑셀 기록 → Claude API → 다음 운동 계획. 증량 한도·부상 규칙은 파이썬 가드레일이 강제. → [상세](#-llm-운동-코치)
+
+### 📥 엑셀 양방향 동기화
+- 폰 → 엑셀: 집 Wi-Fi에서 전송 시 [기록] 시트에 한 운동 = 한 줄 추가
+- 엑셀 → 폰: 앱 실행 시 운동목록·기록을 받아와 맞춤. 엑셀에서 정정한 이름·메모도 반영
+
+### 그 밖에
+유산소(거리·시간·페이스) · 운동별 고정 메모 · 그날 메모 · 원판 한쪽 무게 표시 · JSON 내보내기/가져오기
+
+<br />
+
+## 🤖 LLM 운동 코치
+
+원칙: **LLM은 제안, 규칙은 코드가 강제.** 앱의 오프라인 구조는 그대로 두고 PC 쪽에만 추가.
+
+```
+[집 PC]  python coach.py --date 2026-10-08 --note "허리 약간 뻐근"
+   ① 엑셀 읽기 (sync_excel.read_excel 재사용)
+   ② 컨텍스트 생성 — 최근 6주 기록·지난 세트·증량 가능 무게·부위별 마지막 날짜를 파이썬이 계산
+   ③ Claude API 호출 — 구조화 출력(JSON 스키마, 운동 이름은 enum)으로 계획만 받음
+   ④ 가드레일 validate() — 규칙 위반은 고치고 [자동수정] 표시
+   ⑤ plan.json 병합 저장 + coach_log 기록
+[폰]   집 Wi-Fi에서 앱 실행 시 계획 수신 → 헬스장에선 오프라인으로 진행
 ```
 
-### 폰에 설치 (최초 1회, 같은 Wi-Fi)
+### 가드레일
 
-1. 폰 브라우저(삼성 인터넷·크롬)에서 `http://<PC IP>:8123` 열기
+계산은 LLM에 맡기지 않음 — 지난 세트, 범위 상단 도달 여부, 이번에 쓸 수 있는 최대 무게(`next_kg_max`)를 파이썬이 계산해서 전달. LLM 출력 뒤에서 아래 규칙을 강제.
+
+| | 규칙 | 위반 시 |
+| :--- | :--- | :--- |
+| G1 | 운동목록에 있는 운동만 | 삭제 |
+| G2 | 무게 ≤ 지난번 최고 + 증량 단위 | 상한으로 깎음 |
+| G3 | 통증 메모(오늘 요청·최근 7일 메모·그 운동 지난 메모)가 가리키는 부위는 증량 0. `통증 없음` 등 부정문 제외 | 지난 무게로 |
+| G4 | 세트 1~6, 횟수 1~30 (플랭크 등 초 단위 예외) | 범위로 자름 |
+| G5 | 예상 시간 ≤ 시간 예산 × 1.2 | 뒤 운동부터 세트 축소 |
+| G6 | 그날 이미 한 운동과 중복 | 경고만 |
+| G7 | 지난번 범위 상단 미달이면 무게 유지 | 지난 무게로 |
+
+G7은 후속 추가. 첫 실행에서 LLM이 상단 미달 운동 3개를 한 단계씩 증량 → G2(지난번 + 1단계 이하)로는 통과됨. `next_kg_max`를 컨텍스트에 넣고 G7 추가 → 재실행 시 위반 0건.
+
+### 모델 선택
+
+같은 입력으로 1회씩 비교.
+
+| 모델 | 1회 비용·시간 | 결과 |
+| :--- | :--- | :--- |
+| Claude Haiku 4.5 | 약 $0.014 · 16초 | 허리 통증 요청에도 루마니안 데드리프트 포함, 사실과 다른 근거 |
+| **Claude Sonnet 5.5** (채택) | 약 $0.05 · 26~30초 | 근거 날짜·무게 정확, 부상 부위 운동 제외 |
+
+### 기타
+
+- **API 키** — PC 환경변수에만 보관. `serve.py`가 폴더 전체를 서빙하므로 개인 설정·로그·`.py`·점파일은 404 처리 (실제 파일 경로 기준 판정 — 대소문자·`%` 인코딩·`..` 우회 차단)
+- **호출 로그** — 호출마다 `coach_log/`에 입력 컨텍스트 전체·LLM 원문·수정 전/후 계획·가드레일 수정·토큰·비용·지연·프롬프트 버전 기록. 프롬프트·모델 비교(Eval) 재료
+- **테스트 31개** — 규칙별 가짜 LLM 출력, `plan.json` 병합·백업, 로그(가짜 LLM으로 전체 실행, API 비용 없음). 규칙을 끄면 해당 테스트가 실패하는 것까지 확인
+- **설계 문서** — [docs/LLM코치_1단계_설계.md](docs/LLM코치_1단계_설계.md)
+
+> **개발 방식** — Claude Code(AI 코딩 도구) 사용. 코드·테스트 작성은 주로 Claude Code, 요구사항·방향 결정(모델·가드레일)·실기기 검증은 본인.
+
+<br />
+
+## 🤓 시작하기
+
+**Prerequisites**
+
+- Python 3.10+
+- 같은 Wi-Fi의 안드로이드 폰 (삼성 인터넷 또는 크롬)
+- (코치 사용 시) Anthropic API 키 → 환경변수 `ANTHROPIC_API_KEY`
+
+**PC에서 실행**
+
+```bash
+# 의존성 설치
+pip install openpyxl anthropic
+
+# 서버 실행 → 폰에서 http://<PC IP>:8123
+python serve.py
+
+# 연습용: 동기화를 헬스일지_테스트.xlsx 에
+python serve.py --test
+
+# 코치: 넘길 컨텍스트만 확인 (LLM 호출 없음)
+python coach.py --date 2026-10-08 --context
+
+# 코치: 계획 출력만
+python coach.py --date 2026-10-08 --note "허리 뻐근" --dry-run
+
+# 코치: plan.json 에 저장 (같은 날짜 AI 계획은 교체)
+python coach.py --date 2026-10-08 --focus 하체
+
+# 테스트
+python -m unittest discover -s tests
+```
+
+- 엑셀(`헬스일지.xlsx`)·`백업/` 위치 기본값은 앱 폴더의 상위 폴더. 다른 곳이면 `local_config.json`(git 제외)에 `{"data_dir": "D:/헬스/운동"}` 또는 환경변수 `GYMLOG_DATA`
+- 코치 개인 설정(목표·부상·주당 횟수·시간)은 `coach_profile.json`(git 제외). 형식은 `coach_profile.example.json`
+
+**폰에 설치** (최초 1회, 같은 Wi-Fi)
+
+1. 폰 브라우저에서 `http://<PC IP>:8123` 열기
 2. 메뉴 → **홈 화면에 추가**
-3. 홈 화면 상단에 **오프라인 준비됨 ✓** 뜨면 끝. 이후 PC 꺼도 됨
-4. 확인: Wi-Fi 끄고 아이콘으로 열어보기
+3. 상단에 **오프라인 준비됨 ✓** 표시되면 완료. 이후 PC 꺼도 됨
 
-> ⚠️ **PC IP를 고정하세요.** 설치된 앱은 설치할 때의 주소(`http://<PC IP>:8123`)를 자기 주소로 기억합니다. 공유기가 나중에 PC에 다른 IP를 주면 동기화도, 앱 갱신도 그 주소를 못 찾습니다. Windows 이더넷 설정에서 수동 IP로 바꾸거나, 공유기 DHCP에서 PC MAC에 IP를 예약해 두세요.
->
-> 삼성 인터넷은 http 주소 그대로 됐고, 크롬은 안 되면 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`에 주소를 넣어야 할 수 있음.
+> ⚠️ **PC IP 고정 필요.** 설치된 앱은 설치 당시 주소를 기억함. IP가 바뀌면 동기화·앱 갱신 불가 → 수동 IP 설정 또는 공유기 DHCP 예약.
+> 크롬에서 안 되면 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`에 주소 추가.
 
-### 운동 계획 미리 짜두기
+<br />
 
-`plan.json`을 앱 폴더에 두면 홈에 계획 카드가 뜹니다. 폰이 온라인일 때(집 Wi-Fi) 자동으로 받아 저장하므로, 헬스장에선 오프라인으로 보면서 진행하면 됩니다. 한 번 끝낸 계획은 카드에서 사라집니다.
+## 📚 기술 스택
+
+| 역할 | 종류 |
+| :--- | :--- |
+| App | ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black) ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white) — 의존성 없는 단일 파일, Service Worker |
+| PC 서버·동기화 | ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) — `http.server`, `openpyxl` |
+| LLM | ![Claude API](https://img.shields.io/badge/Claude%20API-D97757?style=for-the-badge&logo=claude&logoColor=white) — Sonnet 5.5, 구조화 출력 |
+| 데이터 | ![Excel](https://img.shields.io/badge/Excel-217346?style=for-the-badge&logoColor=white) — 기록 원본 |
+| 테스트 | `unittest` |
+
+<br />
+
+## 📂 폴더 구조
+
+```
+├── 📜 index.html            앱 전체 (HTML/CSS/JS 단일 파일)
+├── 📜 sw.js                 오프라인 캐시 (index.html 수정 시 VER 올림)
+├── 📜 manifest.webmanifest  홈 화면 설치
+├── 🐍 serve.py              폰용 서버 + /api/sync(폰→엑셀) · /api/excel(엑셀→폰) · 비공개 경로 차단
+├── 🐍 sync_excel.py         앱 기록(JSON) ↔ 엑셀
+├── 🐍 coach.py              LLM 코치 (컨텍스트 → Claude API → 가드레일 → plan.json)
+├── 📂 tests                 가드레일·저장·로그 테스트
+├── 📂 docs                  설계 문서 · 스크린샷
+├── 📜 coach_profile.example.json
+│
+│   ── git 제외 (개인 데이터) ──
+├── 📜 plan.json             운동 계획 (홈 카드)
+├── 📜 seed.json             엑셀에 있던 과거 기록 (첫 실행 때 1회 들여옴)
+├── 📜 coach_profile.json    목표·부상·시간 예산
+├── 📜 local_config.json     엑셀 위치
+└── 📂 coach_log             코치 호출 로그
+```
+
+<br />
+
+## 📝 데이터 형식
+
+<details>
+<summary><b>plan.json</b> — 운동 계획</summary>
 
 ```json
 {
@@ -82,25 +209,36 @@ python serve.py --test        # 동기화를 헬스일지_테스트.xlsx 에 (�
 }
 ```
 
-- `ex` 는 [운동목록]에 있는 이름 (없으면 새 운동으로 추가됨)
-- `warm` 은 워밍업 세트. `{ "kg", "reps" }` 면 그 값으로, `false` 면 워밍업 없이, 빼면 지난번 워밍업대로
-- `kg` 가 `null` 이면 지난번 무게를 그대로 씁니다 ("가볍게" 같은 경우)
-- `repsText` 는 `8~10` 처럼 보여줄 문구, `reps` 는 실제로 미리 채울 숫자
-- 시작한 뒤에는 무게·세트·운동을 자유롭게 바꿔도 됩니다 (계획은 참고용)
+- `ex` — [운동목록]의 이름 (없으면 새 운동으로 추가)
+- `warm` — 워밍업 세트. `{ "kg", "reps" }`면 그 값, `false`면 워밍업 없음, 생략하면 지난번 워밍업
+- `kg` — `null`이면 지난번 무게 그대로
+- `repsText` — `8~10`처럼 표시용 문구, `reps`는 미리 채울 숫자
+- AI 코치 계획은 `id`가 `ai-YYYY-MM-DD`. 같은 id는 교체, 손으로 쓴 계획은 유지
+- 시작 후에는 무게·세트·운동 자유롭게 변경 가능 (계획은 참고용)
 
-### 엑셀 동기화
+</details>
 
-- 기본 대상은 이 폴더 바로 위의 `헬스일지.xlsx` (다른 위치면 환경변수 `GYMLOG_XLSX`)
-- [기록] 시트가 `A날짜 · C운동 · E,F워밍업 · G~R 1~6세트 kg/회 · W메모` 구조라고 가정 (헤더 2줄, 데이터 3행부터)
-- 유산소는 [활동] 시트에 한 줄씩 (A날짜 C종류 D거리 E시간 G강도 H장소 I메모)
-- 메모도 같이 올라감: 운동별 메모는 그 줄 W열, 오늘 메모는 그날 첫 줄에 `[오늘] …`
-- 운동 시작·종료 시각은 그날 첫 줄 AI·AJ 열에 (AK 운동(분)은 수식). 종료는 저장 버튼이 아니라 마지막 세트 ✓ 시각
-- 운동 고정 메모는 [운동목록] F열 뒤에 `[폰] …` 로 붙음. 원래 적어둔 글은 건드리지 않고 `[폰]` 뒤쪽만 갱신
-- 쓰기 전에 `../백업/`에 사본을 남기고(최근 10개), 보낸 세션 id는 `synced.json`에 기록해 중복 방지
-- 서버 없이도: 앱에서 내보낸 JSON을 `python sync_excel.py 헬스일지_날짜.json`
+<details>
+<summary><b>엑셀 동기화</b> — 시트 구조와 규칙</summary>
 
-## 앞으로
+- [기록] 시트: `A날짜 · C운동 · E,F워밍업 · G~R 1~6세트 kg/회 · W메모` (헤더 2줄, 데이터 3행부터)
+- [활동] 시트(유산소): `A날짜 C종류 D거리 E시간 G강도 H장소 I메모`
+- 운동별 메모는 그 줄 W열, 그날 메모는 첫 줄에 `[오늘] …`
+- 시작·종료 시각은 그날 첫 줄 AI·AJ 열 (AK 운동(분)은 수식). 종료 = 마지막 세트 ✓ 시각
+- 운동 고정 메모는 [운동목록] F열 뒤에 `[폰] …`. 기존 글은 유지하고 `[폰]` 뒤쪽만 갱신
+- 쓰기 전 `백업/`에 사본(최근 10개), 보낸 세션 id는 `synced.json`에 기록해 중복 방지
+- 서버 없이: 앱에서 내보낸 JSON을 `python sync_excel.py 헬스일지_날짜.json`
+- 폰 기록 저장 형태(`localStorage`): `{sessions:[{date, entries:[{ex, warm:{kg,reps}, sets:[{kg,reps}], memo}]}]}`
 
+</details>
+
+<br />
+
+## 🗺️ 앞으로
+
+- [ ] AI 코치 계획으로 실제 운동 2~3회 검증 (진행 중)
+- [ ] 앱에서 "AI 계획 받기" 버튼 (온라인일 때만, 실패 시 기존 계획 유지)
+- [ ] Eval — 고정 입력 세트로 규칙 위반률·계획 품질 측정, 프롬프트·모델 비교
 - [ ] 루틴·운동 목록을 앱 안에서 편집
 - [ ] 운동별 무게 추이 그래프
 - [ ] 부위별 마지막으로 한 날
