@@ -29,9 +29,9 @@ RECORDS = [
 ]
 
 
-def ctx(note="", records=RECORDS, injuries=(), budget=60):
+def ctx(note="", records=RECORDS, injuries=(), budget=60, hold=()):
     data = {"exercises": EXERCISES, "records": list(records), "activities": []}
-    profile = {**coach.DEFAULT_PROFILE, "injuries": list(injuries)}
+    profile = {**coach.DEFAULT_PROFILE, "injuries": list(injuries), "hold": list(hold)}
     return coach.build_context(data, TARGET, note=note, time_budget_min=budget, profile=profile)
 
 
@@ -144,11 +144,46 @@ class TestValidate(unittest.TestCase):
         self.assertEqual(rules, [])
 
 
+HOLD = [{"exercises": ["랫풀다운"], "reason": "왼 어깨 — 진단 전까지 제외"}]
+
+
+class TestHold(unittest.TestCase):
+    def test_held_exercise_not_offered(self):
+        c = ctx(hold=HOLD)
+        names = [e["name"] for e in c["exercises"]]
+        self.assertNotIn("랫풀다운", names)                       # 스키마 enum 에도 안 들어감
+        self.assertNotIn("랫풀다운", coach.plan_schema(names)["properties"]["plan"]["properties"]["items"]["items"]["properties"]["ex"]["enum"])
+        self.assertEqual(c["holds"], [{"reason": "왼 어깨 — 진단 전까지 제외", "exercises": ["랫풀다운"]}])
+
+    def test_hold_by_part(self):
+        c = ctx(hold=[{"parts": ["팔"], "reason": "팔꿈치"}])
+        self.assertNotIn("바벨 컬", [e["name"] for e in c["exercises"]])
+        self.assertIn("레그컬", [e["name"] for e in c["exercises"]])
+
+    def test_g8_removes_held(self):
+        res, rules, it = run([item("랫풀다운", 40), item("레그컬", 40)], hold=HOLD)
+        self.assertEqual(rules, ["G8"])                            # G1(목록에 없음)이 아니라 G8 로
+        self.assertNotIn("랫풀다운", it)
+        self.assertTrue(any("진단 전까지" in w for w in res["warnings"]))
+
+    def test_no_hold_default(self):
+        self.assertEqual(ctx()["holds"], [])
+
+
 class TestPain(unittest.TestCase):
     def test_has_pain(self):
         self.assertTrue(coach.has_pain("왼쪽 무릎 통증 → 50으로 낮춤"))
         self.assertFalse(coach.has_pain("무릎·허리 통증 없었음"))
         self.assertFalse(coach.has_pain("위에서 1초 멈춤 처음 적용"))
+
+    def test_illness_freezes_all(self):
+        self.assertEqual(coach.pain_parts("감기 기운"), coach.ALL_PARTS)
+        self.assertEqual(coach.pain_parts("몸살 기운에 허리도 뻐근"), coach.ALL_PARTS)   # 부위 단어가 있어도 전 부위
+        self.assertEqual(coach.pain_parts("감기 없음"), set())
+
+    def test_illness_note_blocks_increase(self):
+        res, rules, it = run([item("레그컬", 47.5), item("바벨 컬", 20)], note="아침에 감기 기운")
+        self.assertEqual((it["레그컬"]["kg"], it["바벨 컬"]["kg"]), (40, 15))
 
     def test_pain_parts(self):
         self.assertEqual(coach.pain_parts("허리 약간 뻐근"), {"하체", "등", "코어"})

@@ -2,13 +2,13 @@
 """헬스앱 폴더를 같은 Wi-Fi 안의 폰에 보여주는 서버 + 엑셀 동기화 API.
    실행: python serve.py          →  폰 크롬에서 http://<이 PC IP>:8123
          python serve.py --test   →  동기화를 헬스일지_테스트.xlsx 에 (진짜 파일 안 건드림)
-   POST /api/sync  {sessions:[...]}  →  헬스일지.xlsx [기록] 에 추가, {written:[id], rows:n} 응답"""
+   POST /api/sync  {sessions:[...]}  →  헬스일지.xlsx [기록] 에 추가, {written:[id], rows:n} 응답
+   panel.py(PC 창)는 make_server() 로 같은 서버를 스레드에서 띄운다."""
 import http.server, socket, os, json, traceback, sys
 import sync_excel
 PORT = 8123
 TEST = "--test" in sys.argv
 ROOT = os.path.dirname(os.path.abspath(__file__))
-os.chdir(ROOT)
 
 # 같은 Wi-Fi 의 아무 기기나 받아 가면 안 되는 것들 → 404 (앱은 index.html·seed.json·plan.json·아이콘만 씀)
 PRIVATE_FILES = {"coach_profile.json", "local_config.json", "synced.json", "synced_test.json"}
@@ -33,6 +33,9 @@ def is_private(fs_path):
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
                       ".webmanifest": "application/manifest+json", ".js": "text/javascript", ".svg": "image/svg+xml"}
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=ROOT, **kwargs)   # 실행 위치와 상관없이 앱 폴더를 서빙
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
@@ -96,10 +99,28 @@ def my_ip():
     except Exception:
         return "127.0.0.1"
 
-# 크롬이 미리 여는 빈 연결 때문에 단일 스레드 서버는 멈추므로 멀티스레드로
-with http.server.ThreadingHTTPServer(("0.0.0.0", PORT), H) as httpd:
+class Server(http.server.ThreadingHTTPServer):
+    # Windows 에선 SO_REUSEADDR 이면 이미 쓰는 포트에 두 번째 서버가 붙어 버림 → 끔 (포트 사용 중이면 OSError)
+    allow_reuse_address = False
+
+
+def make_server(test=False):
+    """서버 객체만 만듦 (serve_forever 는 호출한 쪽에서). 포트가 이미 쓰이면 OSError.
+    크롬이 미리 여는 빈 연결 때문에 단일 스레드 서버는 멈추므로 멀티스레드로"""
+    global TEST
+    TEST = test
+    httpd = Server(("0.0.0.0", PORT), H)
     if TEST:
         print("★ 테스트 모드: 동기화가", os.path.basename(sync_excel.use_test_file()), "에 들어감 (진짜 헬스일지.xlsx 는 안 건드림)")
-    print(f"폰에서 열기:  http://{my_ip()}:{PORT}   (Ctrl+C 로 종료)")
-    try: httpd.serve_forever()
-    except KeyboardInterrupt: pass
+    return httpd
+
+
+def main():
+    with make_server(TEST) as httpd:
+        print(f"폰에서 열기:  http://{my_ip()}:{PORT}   (Ctrl+C 로 종료)")
+        try: httpd.serve_forever()
+        except KeyboardInterrupt: pass
+
+
+if __name__ == "__main__":
+    main()

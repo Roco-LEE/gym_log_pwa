@@ -1,6 +1,17 @@
 {
   "goal": "근비대·자세 우선",
-  "injuries": ["허리(요추) 주의"],
+  "injuries": [
+    "허리(요추) 주의"
+  ],
+  "hold": [
+    {
+      "exercises": [
+        "숄더프레스",
+        "랫풀다운"
+      ],
+      "reason": "어깨 — 진단 전까지 제외"
+    }
+  ],
   "days_per_week": 3,
   "time_budget_min": 60
 }

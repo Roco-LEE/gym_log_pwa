@@ -32,7 +32,21 @@ WINDOW_DAYS = 42          # 최근 범위: 6주 또는 최근 12세션 중 짧�
 WINDOW_SESSIONS = 12
 MEMOS_PER_EX = 3          # 운동별로 보여줄 최근 메모 수
 DAY_TAG = "[오늘] "
-DEFAULT_PROFILE = {"goal": "근비대·자세 우선", "injuries": [], "days_per_week": 3, "time_budget_min": 60}
+DEFAULT_PROFILE = {"goal": "근비대·자세 우선", "injuries": [], "hold": [], "days_per_week": 3, "time_budget_min": 60}
+# injuries = 늘 안고 가는 지병·이력 (LLM 맥락용, 증량 금지 근거로는 안 씀)
+# hold     = 진단·회복 전까지 아예 빼는 운동. [{"exercises": [이름…], "parts": [부위…], "reason": "…"}]
+#            → 컨텍스트의 운동 목록(스키마 enum)에서 빠지고, 그래도 들어오면 G8 이 지움
+
+
+def held_exercises(exercise_rows, profile):
+    """보류 중인 운동 {이름: 이유}. exercise_rows 는 read_excel() 의 exercises ({n, p, …})"""
+    held = {}
+    for h in profile.get("hold") or []:
+        names, parts = set(h.get("exercises") or []), set(h.get("parts") or [])
+        for e in exercise_rows:
+            if e["n"] in names or (e["p"] and e["p"] in parts):
+                held.setdefault(e["n"], h.get("reason") or "보류")
+    return held
 
 
 def load_profile():
@@ -69,8 +83,13 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
     tgt = datetime.date.fromisoformat(target_date)
     ex_info = {e["n"]: e for e in data["exercises"]}
     # 부위 없는 항목(트레드밀 등 유산소)은 계획 후보에서 뺌
+    # 보류 운동도 계획 후보에서 뺌 (스키마 enum 에도 안 들어감)
+    held = held_exercises(data["exercises"], profile)
     exercises = [{"name": e["n"], "part": e["p"], "type": e["t"], "step": e["step"], "rep_range": e["rep"]}
-                 for e in data["exercises"] if e["p"]]
+                 for e in data["exercises"] if e["p"] and e["n"] not in held]
+    holds = {}
+    for name, reason in held.items():
+        holds.setdefault(reason, []).append(name)
 
     past = sorted((r for r in data["records"] if r["date"] < target_date), key=lambda r: r["date"])
     done_today = [r for r in data["records"] if r["date"] == target_date]
@@ -134,6 +153,7 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
         "target_date": target_date,
         "request": {"focus": focus, "note": note or "", "time_budget_min": time_budget_min or profile["time_budget_min"]},
         "profile": {k: profile[k] for k in ("goal", "injuries", "days_per_week")},
+        "holds": [{"reason": r, "exercises": names} for r, names in holds.items()],
         "window": {"since": since, "sessions": len({r["date"] for r in recent})},
         "exercises": exercises,
         "stats": stats,
@@ -150,6 +170,9 @@ def build_context(data, target_date, focus=None, note="", time_budget_min=None, 
 SYSTEM = """당신은 일반인 헬스 이용자를 돕는 보수적인 근력운동 코치다. 의학적 진단이나 치료 조언은 하지 않는다.
 사용자 메시지는 target_date 하루의 운동 계획을 짜기 위한 JSON 이다. stats 의 숫자는 이미 계산된 값이니 그대로 믿는다.
 - exercises 목록에 있는 운동만 쓴다.
+- holds 의 운동은 진단·회복 전까지 보류 중이라 목록에서 빠져 있다. 쓰지 말고, 그 부위에 부담이 가는 비슷한 동작도 피하며,
+  보류 중이라는 사실을 warnings 에 한 줄 적는다.
+- request.note·recent_day_memos 에 감기·몸살 등 컨디션 저하가 있으면 전 부위 증량하지 않고 세트·운동 수를 줄인다.
 - 진행 규칙(더블 프로그레션): kg 는 stats 의 next_kg_max 를 절대 넘지 않는다. next_kg_max 는 지난번 모든 세트가 rep 범위 상단에
   도달했으면(hit_top_of_range=true) 지난 무게 + step, 아니면 지난 무게 그대로다. 무게를 유지하는 운동은 횟수를 채우는 게 목표다.
   지난 기록이 없는 운동은 kg 를 null 로 둔다.
@@ -238,7 +261,8 @@ def write_log(entry, log_dir=None):
 MAX_SETS, MAX_REPS = 6, 30          # [기록] 시트가 6세트까지
 DEFAULT_REST = 90
 SEC_PER_SET = 40                    # 세트 수행 시간 대략
-PAIN = re.compile(r"허리|통증|아픔|아프|아팠|뻐근|부상|시림|시린")
+PAIN = re.compile(r"허리|통증|아픔|아프|아팠|뻐근|부상|시림|시린|감기|몸살|발열|오한|독감")
+ILLNESS = re.compile(r"감기|몸살|발열|오한|독감")   # 몸 전체 컨디션 → 부위 단어가 있어도 전 부위
 BODY_PARTS = {"허리": {"하체", "등", "코어"}, "무릎": {"하체"}, "어깨": {"어깨", "가슴", "등"},
               "팔꿈치": {"팔", "가슴"}, "손목": {"팔", "가슴"}}
 ALL_PARTS = {"하체", "등", "코어", "어깨", "가슴", "팔"}
@@ -255,6 +279,8 @@ def pain_parts(text):
     """통증 문장이 가리키는 부위들. 몸 부위 단어가 없으면 전 부위(보수적)"""
     if not has_pain(text):
         return set()
+    if any("없" not in text[m.end():m.end() + 8] for m in ILLNESS.finditer(text)):
+        return set(ALL_PARTS)
     parts = set().union(*(v for k, v in BODY_PARTS.items() if k in text))
     return parts or set(ALL_PARTS)
 
@@ -280,7 +306,8 @@ def validate(out, ctx):
     G4 sets 1~6, reps 1~30 (플랭크처럼 범위가 30 넘는 운동은 그 상단까지)
     G5 예상 시간 ≤ 시간 예산 × 1.2 → 뒤 항목부터 세트 축소
     G6 그날 이미 한 운동과 겹침 → 경고만
-    G7 지난번에 rep 범위 상단을 못 채웠으면 무게 유지 (kg ≤ next_kg_max) — G2 만으론 '미달인데 +step' 을 못 잡음"""
+    G7 지난번에 rep 범위 상단을 못 채웠으면 무게 유지 (kg ≤ next_kg_max) — G2 만으론 '미달인데 +step' 을 못 잡음
+    G8 profile.hold 로 보류 중인 운동 → 삭제 (enum 에서 빠져 있어 보통은 안 들어옴, 안전망)"""
     out = json.loads(json.dumps(out))       # 깊은 복사
     fixes = []
     ex_info = {e["name"]: e for e in ctx["exercises"]}
@@ -300,6 +327,10 @@ def validate(out, ctx):
 
     items = []
     for it in out["plan"]["items"]:
+        hold = next((h["reason"] for h in ctx.get("holds", []) if it["ex"] in h["exercises"]), None)
+        if hold:                                                             # G8
+            fix(None, "G8", f"보류 중인 '{it['ex']}' 삭제 ({hold})")
+            continue
         info = ex_info.get(it["ex"])
         if not info:                                                         # G1
             fix(None, "G1", f"운동목록에 없는 '{it['ex']}' 삭제")
@@ -331,7 +362,7 @@ def validate(out, ctx):
                 it["kg"] = last
             own = st["memos"][0]["memo"] if st["memos"] and st["memos"][0]["date"] == st["last_date"] else ""
             if it["kg"] > last and (info["part"] in frozen or has_pain(own)):  # G3
-                why = "그 운동 지난 메모" if has_pain(own) else "통증 메모"
+                why = "그 운동 지난 메모" if has_pain(own) else "통증·컨디션 메모"
                 fix(it, "G3", f"{it['kg']:g}kg→{last:g}kg ({why} 있어 증량 보류)")
                 it["kg"] = last
 
@@ -383,9 +414,10 @@ def merge_plans(doc, plan):
     return {**(doc or {}), "plans": plans}, "추가" if i is None else "교체"
 
 
-def save_plan(plan, path=PLAN, backup_dir=None):
+def save_plan(plan, path=None, backup_dir=None):
     """plan.json 에 병합 저장. 쓰기 전 기존 파일을 백업 폴더에 plan_YYYYMMDD-HHMMSS.json 으로 (최근 10개).
     반환: ('교체'|'추가', 백업 경로 또는 None)"""
+    path = path or PLAN
     backup_dir = backup_dir or sync_excel.BACKUP_DIR
     doc, bak = None, None
     if os.path.exists(path):
@@ -405,6 +437,115 @@ def save_plan(plan, path=PLAN, backup_dir=None):
     return action, bak
 
 
+def list_plans(path=None):
+    """plan.json 의 계획 목록 (없으면 [])"""
+    path = path or PLAN
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        return (json.load(f) or {}).get("plans") or []
+
+
+def delete_plan(plan_id, path=None, backup_dir=None):
+    """plan.json 에서 AI 계획(id ai-…) 하나 삭제. 쓰기 전 백업. 손으로 쓴 계획은 지우지 않음.
+    반환: (지운 계획 또는 None, 백업 경로 또는 None). 폰은 다음에 앱을 열 때 plan.json 을 받아 카드가 사라짐"""
+    if not plan_id.startswith("ai-"):
+        raise CoachError("AI 계획(ai-…)만 지울 수 있어요")
+    path = path or PLAN
+    if not os.path.exists(path):
+        return None, None
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    plans = doc.get("plans") or []
+    gone = next((p for p in plans if p.get("id") == plan_id), None)
+    if gone is None:
+        return None, None
+    backup_dir = backup_dir or sync_excel.BACKUP_DIR
+    os.makedirs(backup_dir, exist_ok=True)
+    bak = os.path.join(backup_dir, f"plan_{datetime.datetime.now():%Y%m%d-%H%M%S}.json")
+    shutil.copy2(path, bak)
+    doc["plans"] = [p for p in plans if p.get("id") != plan_id]
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)
+    return gone, bak
+
+
+def save_holds(holds, path=None):
+    """coach_profile.json 의 hold 만 바꿔 저장 (다른 항목은 그대로)"""
+    path = path or PROFILE
+    prof = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            prof = json.load(f)
+    prof["hold"] = holds
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(prof, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+class CoachError(Exception):
+    """사용자에게 그대로 보여줄 수 있는 실패 (키 없음·네트워크·응답 끊김 등)"""
+
+
+def make_plan(date, focus=None, note="", time=None, dry_run=False, model=MODEL):
+    """계획 하나 만들기 — CLI(main)와 PC 창(panel.py)이 같이 쓰는 입구.
+    엑셀 읽기 → 컨텍스트 → LLM → 가드레일 → (저장). 성공·실패 모두 coach_log 에 남김.
+    반환: {plan, fixes:[(규칙, 내용)], meta, saved:'교체'|'추가'|None, backup, log}. 실패는 CoachError"""
+    datetime.date.fromisoformat(date)          # 형식 검사
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        raise CoachError("API 키가 없어요. 환경변수 ANTHROPIC_API_KEY 를 설정한 뒤 다시 실행하세요.")
+    try:
+        data = sync_excel.read_excel()
+    except FileNotFoundError:
+        raise CoachError(f"엑셀을 못 찾았어요: {sync_excel.XLSX}")
+    ctx = build_context(data, date, focus, note, time, load_profile())
+    log = {"ts": datetime.datetime.now().isoformat(timespec="seconds"), "target_date": date,
+           "args": {"focus": focus, "note": note, "time": time, "dry_run": dry_run},
+           "model_requested": model, "prompt_version": prompt_version(), "context": ctx}
+    try:
+        result = _run(ctx, date, dry_run, model, log)
+    except Exception as e:                     # 예상 못 한 오류도 입력·원문은 남김
+        log["error"] = str(e) if isinstance(e, CoachError) else repr(e)
+        raise
+    finally:
+        log_path = write_log(log)
+    result["log"] = log_path
+    return result
+
+
+def _run(ctx, date, dry_run, model, log):
+    """LLM 호출 → 검증 → (저장). 진행하며 log 를 채움"""
+    import anthropic
+    try:
+        text, meta = call_llm(ctx, model)
+    except anthropic.AuthenticationError:
+        raise CoachError("API 키가 틀렸어요. 환경변수 ANTHROPIC_API_KEY 를 확인하세요.")
+    except anthropic.APIConnectionError:
+        raise CoachError("네트워크 오류 — 인터넷 연결 확인")
+    except anthropic.APIStatusError as e:
+        raise CoachError(f"API 오류 {e.status_code}: {e.message}")
+    meta["cost_usd"] = cost_usd(meta["model"], meta["usage"])
+    log.update(meta=meta, raw_output=text)
+    if meta["stop_reason"] != "end_turn":      # refusal·max_tokens 면 스키마대로가 아닐 수 있음
+        raise CoachError(f"LLM 응답이 끝까지 오지 않음: stop_reason={meta['stop_reason']}")
+    out = json.loads(text)
+    log["llm_output"] = out
+
+    out, fixes = validate(out, ctx)
+    log["fixes"] = [{"rule": r, "msg": m} for r, m in fixes]
+    plan = to_plan(out, date)
+    # 앱은 모르는 필드는 무시함 → 근거·경고도 계획에 같이 남겨 둠 (카드엔 note 만 보임)
+    plan["rationale"], plan["warnings"] = out["rationale"], out["warnings"]
+    plan["model"] = meta["model"]
+    log["final_plan"] = plan
+    saved, bak = (None, None) if dry_run else save_plan(plan)
+    log["saved"] = saved
+    return {"plan": plan, "fixes": fixes, "meta": meta, "saved": saved, "backup": bak}
+
+
 def main():
     ap = argparse.ArgumentParser(description="LLM 운동 코치 — 다음 운동 계획 → plan.json")
     ap.add_argument("--date", default=datetime.date.today().isoformat(), help="계획 날짜 YYYY-MM-DD (기본: 오늘)")
@@ -414,73 +555,40 @@ def main():
     ap.add_argument("--context", action="store_true", help="LLM 없이 컨텍스트만 출력")
     ap.add_argument("--dry-run", action="store_true", help="계획을 출력만 하고 plan.json 은 안 씀")
     ap.add_argument("--model", default=MODEL, help=f"기본 {MODEL}")
+    ap.add_argument("--delete", action="store_true", help="그 날짜의 AI 계획(ai-날짜)을 plan.json 에서 삭제")
     a = ap.parse_args()
     datetime.date.fromisoformat(a.date)       # 형식 검사
 
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
-    ctx = build_context(sync_excel.read_excel(), a.date, a.focus, a.note, a.time, load_profile())
+    if a.delete:
+        gone, bak = delete_plan(f"ai-{a.date}")
+        print(f"※ 삭제: {gone['title']} (백업: {bak})" if gone else f"※ ai-{a.date} 계획이 없어요", file=sys.stderr)
+        return
     if a.context:
+        ctx = build_context(sync_excel.read_excel(), a.date, a.focus, a.note, a.time, load_profile())
         print(json.dumps(ctx, ensure_ascii=False, indent=2))
         return
 
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-        sys.exit("API 키가 없어요. setx ANTHROPIC_API_KEY \"<키>\" 후 새 터미널에서 실행하세요.")
-
-    log = {"ts": datetime.datetime.now().isoformat(timespec="seconds"), "target_date": a.date,
-           "args": {"focus": a.focus, "note": a.note, "time": a.time, "dry_run": a.dry_run},
-           "model_requested": a.model, "prompt_version": prompt_version(), "context": ctx}
     try:
-        msg = run_coach(ctx, a, log)
-    except SystemExit as e:
-        log["error"] = str(e.code)
-        raise
-    except Exception as e:                    # 예상 못 한 오류도 입력·원문은 남김
-        log["error"] = repr(e)
-        raise
-    finally:
-        print(f"※ 로그: {write_log(log)}", file=sys.stderr)
-    print(msg, file=sys.stderr)
-
-
-def run_coach(ctx, a, log):
-    """LLM 호출 → 검증 → (저장). 진행하며 log 를 채움. 반환: 마지막 안내 문구"""
-    import anthropic
-    try:
-        text, meta = call_llm(ctx, a.model)
-    except anthropic.AuthenticationError:
-        sys.exit("API 키가 틀렸어요. 환경변수 ANTHROPIC_API_KEY 를 확인하고 새 터미널에서 다시 실행하세요.")
-    except anthropic.APIConnectionError:
-        sys.exit("네트워크 오류 — 인터넷 연결 확인")
-    except anthropic.APIStatusError as e:
-        sys.exit(f"API 오류 {e.status_code}: {e.message}")
-    meta["cost_usd"] = cost_usd(meta["model"], meta["usage"])
-    log.update(meta=meta, raw_output=text)
-    print(f"※ {meta['model']} · 입력 {meta['usage']['input']} / 출력 {meta['usage']['output']} 토큰 · "
-          f"{meta['ms'] / 1000:.1f}초 · 약 ${meta['cost_usd']}", file=sys.stderr)
-    if meta["stop_reason"] != "end_turn":      # refusal·max_tokens 면 스키마대로가 아닐 수 있음
-        sys.exit(f"LLM 응답이 끝까지 오지 않음: stop_reason={meta['stop_reason']}")
-    out = json.loads(text)
-    log["llm_output"] = out
-
-    out, fixes = validate(out, ctx)
-    log["fixes"] = [{"rule": r, "msg": m} for r, m in fixes]
-    for rule, msg in fixes:
+        r = make_plan(a.date, a.focus, a.note, a.time, a.dry_run, a.model)
+    except CoachError as e:
+        sys.exit(str(e))
+    m = r["meta"]
+    print(f"※ {m['model']} · 입력 {m['usage']['input']} / 출력 {m['usage']['output']} 토큰 · "
+          f"{m['ms'] / 1000:.1f}초 · 약 ${m['cost_usd']}", file=sys.stderr)
+    for rule, msg in r["fixes"]:
         print(f"※ {rule} {msg}", file=sys.stderr)
-    if not fixes:
+    if not r["fixes"]:
         print("※ 가드레일: 고칠 것 없음", file=sys.stderr)
-    plan = to_plan(out, a.date)
-    # 앱은 모르는 필드는 무시함 → 근거·경고도 계획에 같이 남겨 둠 (카드엔 note 만 보임)
-    plan["rationale"], plan["warnings"] = out["rationale"], out["warnings"]
-    plan["model"] = meta["model"]
-    log["final_plan"] = plan
-    print(json.dumps(plan, ensure_ascii=False, indent=2))
+    print(json.dumps(r["plan"], ensure_ascii=False, indent=2))
     if a.dry_run:
-        log["saved"] = None
-        return "※ --dry-run: plan.json 은 안 씀"
-    action, bak = save_plan(plan)
-    log["saved"] = action
-    return f"※ plan.json 에 {plan['id']} {action}" + (f" (이전 파일 백업: {bak})" if bak else "")
+        print("※ --dry-run: plan.json 은 안 씀", file=sys.stderr)
+    else:
+        print(f"※ plan.json 에 {r['plan']['id']} {r['saved']}" + (f" (이전 파일 백업: {r['backup']})" if r["backup"] else ""),
+              file=sys.stderr)
+    print(f"※ 로그: {r['log']}", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()

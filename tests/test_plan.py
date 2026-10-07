@@ -74,5 +74,32 @@ class TestSave(unittest.TestCase):
             self.assertEqual(f.read(), "{깨진")
 
 
+class TestDelete(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "plan.json")
+        self.bak = os.path.join(self.tmp.name, "백업")
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({"plans": [plan("2026-09-25", "2026-09-25"), plan("ai-2026-10-08", "2026-10-08", "AI")]}, f)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_delete_ai_plan_with_backup(self):
+        gone, bak = coach.delete_plan("ai-2026-10-08", self.path, self.bak)
+        self.assertEqual(gone["title"], "AI")
+        self.assertEqual([p["id"] for p in coach.list_plans(self.path)], ["2026-09-25"])   # 손으로 쓴 계획은 남음
+        with open(bak, encoding="utf-8") as f:
+            self.assertEqual(len(json.load(f)["plans"]), 2)                                 # 백업 = 지우기 전
+
+    def test_missing_id(self):
+        self.assertEqual(coach.delete_plan("ai-2026-12-31", self.path, self.bak), (None, None))
+        self.assertFalse(os.path.exists(self.bak))                                          # 바꾼 게 없으면 백업도 안 만듦
+
+    def test_manual_plan_protected(self):
+        with self.assertRaises(coach.CoachError):
+            coach.delete_plan("2026-09-25", self.path, self.bak)
+
+
 if __name__ == "__main__":
     unittest.main()

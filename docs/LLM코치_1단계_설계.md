@@ -139,6 +139,9 @@
 | G5 | 예상 시간 ≤ `time_budget_min` × 1.2 | 뒤 항목부터 세트 축소 + 경고 |
 | G6 | 같은 날짜에 이미 끝낸 운동(오늘 기록)과 중복 | 경고만 |
 | G7 | 지난번 rep 범위 상단 미달이면 `kg` ≤ 지난 무게 (2026-10-06 추가) | 지난 무게로 되돌림 + 경고 |
+| G8 | `profile.hold`의 보류 운동 금지 (2026-10-07 추가) | 삭제 + 경고 |
+
+> **2026-10-07 — 부상 두 칸 분리**: 10/8 계획에 덤벨 숄더프레스가 들어감. `injuries`엔 통증 이력만 있어 LLM은 "조심하면 된다"로 읽었고, 코드는 injuries를 증량 금지 근거로 일부러 안 씀. → `hold`(진단·회복 전까지 제외: 운동 이름·부위 + 이유) 신설, 컨텍스트 후보·enum에서 제외 + G8. 감기·몸살은 G3에서 전 부위 증량 0. 창에 컨디션 체크·보류 편집·AI 계획 삭제 추가.
 
 > **2026-10-06 구현 메모**
 > - **G7 추가 이유**: 첫 Haiku 실행에서 상단 미달 운동 3개를 +step 증량 → G2(지난+step 이하)는 통과시킴. 컨텍스트에도 파이썬이 계산한 `next_kg_max`를 넣어 LLM이 계산하지 않게 함 → 재실행 시 위반 0.
@@ -170,7 +173,9 @@
    - 호출 1회 = `coach_log/YYYYMMDD-HHMMSS_<계획날짜>.json`: args·`context`(입력 전체)·`raw_output`(LLM 원문)·`llm_output`(고치기 전)·`fixes`·`final_plan`·`meta`(모델·토큰·지연·`cost_usd`)·`prompt_version`(시스템 프롬프트+스키마 해시)·`saved`·`error`
    - dry-run·실패(키 오류·max_tokens 등)도 남김. 테스트 `tests/test_log.py`(가짜 LLM으로 main 끝까지, API 비용 없음)
 
-**1.5단계(선택)**: `serve.py`에 `POST /api/coach {date, focus, note}` → `coach.make_plan()` → `plan.json` 저장 후 계획 반환. 앱 홈에 "AI 계획 받기" 버튼(온라인일 때만), 성공하면 `fetchPlans()` 재호출. API 실패·오프라인이면 기존 계획 그대로(fallback) + 토스트.
+**1.5단계 — PC 창 ✅ 2026-10-07**: 앱 버튼 대신 PC 창(`panel.py`, tkinter)으로 먼저 함. 서버 켜기 + 코치 입력·결과를 한 창에서, 바탕화면 바로가기 = `pythonw panel.py`. `coach.make_plan()`·`serve.make_server()`로 CLI와 공용. Windows `SO_REUSEADDR`로 같은 포트에 서버 두 개가 붙던 문제 발견 → `allow_reuse_address=False`.
+
+**1.5단계(선택, 원안)**: `serve.py`에 `POST /api/coach {date, focus, note}` → `coach.make_plan()` → `plan.json` 저장 후 계획 반환. 앱 홈에 "AI 계획 받기" 버튼(온라인일 때만), 성공하면 `fetchPlans()` 재호출. API 실패·오프라인이면 기존 계획 그대로(fallback) + 토스트.
 
 **2단계 이후**: Eval(고정 입력 세트로 규칙 위반률 측정) → 도구 호출(LLM이 `get_history(ex)`를 직접 조회) → MCP 서버(헬스일지를 Claude에서 질의) → 현장 컨디션 조정.
 
