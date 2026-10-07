@@ -280,10 +280,27 @@ function parseSec(t) {
   const p = t.split(":").map(Number); if (p.some(isNaN)) return null;
   return p.length === 1 ? p[0] * 60 : p.length === 2 ? p[0] * 60 + p[1] : p[0] * 3600 + p[1] * 60 + p[2];
 }
+// 유산소 시간은 분으로 보이고 분으로 입력 (9:30 처럼 분:초로 적어도 됨). 엑셀 [활동] 에는 지금처럼 9:30 형식으로 감
+function minText(sec) { return sec == null ? "" : fmt(Math.round(sec / 6) / 10); }
+function parseMin(t) {
+  t = String(t || "").trim(); if (!t) return null;
+  if (t.includes(":")) return parseSec(t);
+  const m = parseFloat(t); return isNaN(m) || m < 0 ? null : Math.round(m * 60);
+}
 function cardioText(c) {
   if (!c) return "";
   const pace = c.km && c.sec ? ` · ${secText(c.sec / c.km)}/km` : "";
-  return [c.km ? fmt(c.km) + "km" : "", secText(c.sec), c.level || ""].filter(Boolean).join(" · ") + pace;
+  return [c.km ? fmt(c.km) + "km" : "", c.sec ? minText(c.sec) + "분" : "", c.level || ""].filter(Boolean).join(" · ") + pace;
+}
+// 운동 중 유산소 항목. 계획(plan.cardio {km, min})이 있으면 그 값, 없으면 지난번 값으로 채움
+function cardioEntry(ex, plan) {
+  const last = cardioHistory(ex)[0];
+  const c = last ? { ...last.cardio } : { km: null, sec: null, level: "", place: "" };
+  if (plan && plan.cardio) {
+    if (plan.cardio.km != null) c.km = plan.cardio.km;
+    if (plan.cardio.min != null) c.sec = plan.cardio.min * 60;
+  }
+  return { ex, rows: [], memo: "", cardio: { ...c, done: false }, plan: plan || null };
 }
 function cardioHistory(ex) {
   const out = [];
@@ -349,7 +366,7 @@ function renderHome() {
     <h3>지난 기록</h3>
     ${sessions.map(s => `<div class="sess" data-hold="holdDeleteSession:${s.id}" onclick="showDetail('${s.id}')">
         <div class="d">${md(s.date)}${s.start && s.end ? `<div class="dim" style="font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap">${hm(s.start)}–${hm(s.end)}<br>${Math.round((s.end - s.start) / 60000)}분</div>` : ""}</div>
-        <div class="s">${s.entries.map(e => esc(e.ex) + " " + (e.cardio ? [e.cardio.km ? fmt(e.cardio.km) + "km" : "", secText(e.cardio.sec)].filter(Boolean).join(" ") : e.sets.length ? fmt(Math.max(...e.sets.map(x => x.kg))) + "kg×" + e.sets.length : "")).join(" · ")}</div>
+        <div class="s">${s.entries.map(e => esc(e.ex) + " " + (e.cardio ? [e.cardio.km ? fmt(e.cardio.km) + "km" : "", e.cardio.sec ? minText(e.cardio.sec) + "분" : ""].filter(Boolean).join(" ") : e.sets.length ? fmt(Math.max(...e.sets.map(x => x.kg))) + "kg×" + e.sets.length : "")).join(" · ")}</div>
         <div class="dim">›</div></div>`).join("") || `<div class="dim">아직 없음</div>`}
   </div>
   <div class="foot row">
@@ -490,7 +507,7 @@ function pickExercise(afterExercise) {
   for (const s of DB.sessions.slice().sort((a, b) => b.date < a.date ? -1 : 1)) for (const e of s.entries) if (!seen.has(e.ex)) { seen.add(e.ex); recent.push(e.ex); }
   const forPlan = view === "planEdit";
   const groups = { "최근 한 운동": recent.filter(n => !(forPlan && isCardio(n))).slice(0, 12).map(n => exInfo(n)) };
-  if (!forPlan) groups["유산소"] = CARDIO.map(n => ({ n }));
+  groups["유산소"] = CARDIO.map(n => ({ n }));   // 엑셀 [운동목록]이 아니라 코드의 유산소 목록 (기록은 [활동] 시트로)
   for (const e of DB.exercises) (groups[e.p] = groups[e.p] || []).push(e);
   const chip = e => `<button class="sm pick ${inSession.has(e.n) ? "in" : ""}" onclick="addExercise('${esc(e.n)}')">${esc(e.n)}${inSession.has(e.n) ? " ✓" : ""}</button>`;
   openModal(`${Object.keys(groups).filter(p => groups[p].length).map(p => `<h3>${p}</h3><div class="row" style="flex-wrap:wrap;gap:8px">${groups[p].map(chip).join("")}</div>`).join("")}
@@ -502,13 +519,15 @@ function pickExercise(afterExercise) {
 function addExercise(name) {
   if (!name) return;
   if (isCardio(name) && view !== "planEdit") {
-    const last = cardioHistory(name)[0];
-    cur.entries.push({ ex: name, rows: [], memo: "", cardio: last ? { ...last.cardio, done: false } : { km: null, sec: null, level: "", place: "", done: false } });
+    cur.entries.push(cardioEntry(name));
     saveCur(); closeModal(); return openExercise(cur.entries.length - 1);
   }
-  if (!DB.exercises.find(e => e.n === name)) { DB.exercises.push({ n: name, p: "기타", t: "", step: 2.5, rep: "" }); save(); }
-  // 계획 짜는 중이면 고른 운동의 무게·횟수 창을 바로 띄움 (목록으로 돌아갔다가 다시 누르지 않게)
-  if (view === "planEdit") { pe.items.push(planItemFromHistory(name)); closeModal(); renderPlanEdit(); return editPlanItem(pe.items.length - 1); }
+  if (!isCardio(name) && !DB.exercises.find(e => e.n === name)) { DB.exercises.push({ n: name, p: "기타", t: "", step: 2.5, rep: "" }); save(); }
+  // 계획 짜는 중이면 고른 운동의 설정 창(무게·횟수 / 유산소는 km·분)을 바로 띄움
+  if (view === "planEdit") {
+    pe.items.push(isCardio(name) ? planCardioFromHistory(name) : planItemFromHistory(name));
+    closeModal(); renderPlanEdit(); return editPlanItem(pe.items.length - 1);
+  }
   cur.entries.push(makeEntry(name, 3, DB.settings.rest));
   saveCur(); closeModal(); openExercise(cur.entries.length - 1);
 }
@@ -715,13 +734,14 @@ function renderCardio() {
     <button class="sm ghost" style="font-size:22px;padding:4px 16px" onclick="exMenu()">⋯</button></div>
   <div class="body">
     <div class="exname">🏃 ${esc(e.ex)}</div>
+    ${e.plan ? `<div class="plan">🎯 계획 <b>${planTargetText(e.plan)}</b>${e.plan.note ? `<div class="pnote">${esc(e.plan.note)}</div>` : ""}</div>` : ""}
     <div class="info"><div class="l1">${last ? `지난번 ${md(last.date)} <b>${cardioText(last.cardio)}</b>` : "첫 기록"}</div></div>
     <h3>거리 km <span class="dim" style="font-weight:500">(없으면 비워두기)</span></h3>
     ${numStep("cKm", c.km == null ? "" : fmt(c.km), 0.1, { ph: "0.0" })}
-    <h3>시간 <span class="dim" style="font-weight:500">분:초 · 9.30 이나 930 도 됨</span></h3>
-    <div class="nstep"><button type="button" onclick="bumpTime(-60)">−</button>
-      <input type="text" inputmode="decimal" id="cTime" value="${secText(c.sec)}" placeholder="9:30">
-      <button type="button" onclick="bumpTime(60)">＋</button></div>
+    <h3>시간 분 <span class="dim" style="font-weight:500">(9.5 처럼 소수, 9:30 처럼 분:초도 됨)</span></h3>
+    <div class="nstep"><button type="button" onclick="bumpTime(-1)">−</button>
+      <input type="text" inputmode="decimal" id="cTime" value="${minText(c.sec)}" placeholder="10">
+      <button type="button" onclick="bumpTime(1)">＋</button></div>
     <h3>강도</h3>
     <div class="row" style="gap:8px">${["가볍게", "보통", "힘들게"].map(l => `<button style="flex:1;min-height:48px" class="${c.level === l ? "acc" : ""}" onclick="saveCardioFields();cur.entries[exIdx].cardio.level=cur.entries[exIdx].cardio.level==='${l}'?'':'${l}';saveCur();renderCardio()">${l}</button>`).join("")}</div>
     <h3>장소</h3>
@@ -731,12 +751,12 @@ function renderCardio() {
     <button class="big ok" onclick="doneCardio()">${c.done ? "수정 완료" : "기록 ✓"}</button>
   </div>`);
 }
-function bumpTime(d) { const inp = $("#cTime"); const v = parseSec(inp.value) || 0; inp.value = secText(Math.max(0, v + d)); }
+function bumpTime(d) { const inp = $("#cTime"); const v = parseMin(inp.value) || 0; inp.value = minText(Math.max(0, v + d * 60)); }
 function saveCardioFields() {
   const c = cur.entries[exIdx].cardio; if (!$("#cTime")) return;
   const km = parseFloat($("#cKm").value);
   c.km = isNaN(km) || km <= 0 ? null : Math.round(km * 100) / 100;
-  c.sec = parseSec($("#cTime").value);
+  c.sec = parseMin($("#cTime").value);
   c.place = $("#cPlace").value.trim();
   saveCur();
 }
@@ -834,7 +854,7 @@ function planById(id) { return allPlans().find(p => p.id === id); }
 function startPlan(id) {
   const p = planById(id); if (!p) return;
   cur = { id: "s-" + Date.now(), date: today(), routine: p.title || "계획", planId: p.id, start: Date.now(),
-          entries: p.items.map(it => makeEntry(it.ex, it.sets, it.rest, it)) };
+          entries: p.items.map(it => isCardio(it.ex) ? cardioEntry(it.ex, it) : makeEntry(it.ex, it.sets, it.rest, it)) };
   saveCur(); exIdx = 0; go("session");
 }
 // mode: today(주인공) / upcoming(다가오는) / overdue(밀린)
@@ -867,10 +887,18 @@ function planItemFromHistory(ex) {
   const t = topSet(last.sets);
   return { ex, warm: last.warm ? { ...last.warm } : undefined, kg: t.kg, reps: t.reps, sets: last.sets.length, note: "" };
 }
+// 유산소 계획 항목: {ex, cardio: {km, min}} — 지난번 거리·시간을 기본값으로
+function planCardioFromHistory(ex) {
+  const last = cardioHistory(ex)[0];
+  return { ex, cardio: { km: last ? last.cardio.km : null, min: last && last.cardio.sec ? Math.round(last.cardio.sec / 60) : null }, note: "" };
+}
 function newPlan(fromSessionId) {
   const s = fromSessionId && DB.sessions.find(x => x.id === fromSessionId);
   pe = { id: "my-" + Date.now(), date: addDays(1), title: "", note: "", items: [] };
-  if (s) pe.items = s.entries.filter(e => e.sets.length && !e.cardio).map(e => { const t = topSet(e.sets); return { ex: e.ex, warm: e.warm ? { ...e.warm } : undefined, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" }; });
+  if (s) pe.items = s.entries.filter(e => e.cardio || e.sets.length).map(e => {
+    if (e.cardio) return { ex: e.ex, cardio: { km: e.cardio.km, min: e.cardio.sec ? Math.round(e.cardio.sec / 60) : null }, note: "" };
+    const t = topSet(e.sets); return { ex: e.ex, warm: e.warm ? { ...e.warm } : undefined, kg: t.kg, reps: t.reps, sets: e.sets.length, note: "" };
+  });
   go("planEdit");
 }
 function editPlan(id) { const p = (DB.myPlans || []).find(x => x.id === id); if (!p) return; pe = JSON.parse(JSON.stringify(p)); go("planEdit"); }
@@ -913,7 +941,28 @@ function bump(id, d, min) {
   const base = inp.value === "" ? parseFloat(inp.dataset.base || inp.placeholder) || 0 : parseFloat(inp.value) || 0;
   inp.value = Math.max(min, Math.round((base + d) * 100) / 100);
 }
+function editPlanCardio(i) {
+  const it = pe.items[i], c = it.cardio || {}, last = cardioHistory(it.ex)[0];
+  openModal(`
+    <div class="fgrid" style="margin-top:4px">
+      <div><div class="dim small">거리 km</div>${numStep("pcKm", c.km == null ? "" : fmt(c.km), 0.1, { ph: "0.0" })}</div>
+      <div><div class="dim small">시간 분</div>${numStep("pcMin", c.min == null ? "" : fmt(c.min), 1, { int: 1, ph: "10" })}</div>
+    </div>
+    <div class="dim small mt">비워두면 그날 자유롭게</div>
+    <h3>메모</h3><input type="text" id="piNote" placeholder="예) 웨이트 전 워밍업, 경사 5" value="${esc(it.note || "")}">
+    <div class="row mt"><button style="flex:1" ${i === 0 ? "disabled" : ""} onclick="movePlanItem(${i},-1)">↑ 위로</button><button style="flex:1" ${i === pe.items.length - 1 ? "disabled" : ""} onclick="movePlanItem(${i},1)">↓ 아래로</button></div>
+    <div class="row mt"><button style="flex:1;color:var(--bad)" onclick="pe.items.splice(${i},1);closeModal();renderPlanEdit()">이 운동 빼기</button></div>`,
+    { head: `<div style="font-size:18px;font-weight:700">🏃 ${esc(it.ex)}</div><div class="dim small">${last ? "지난번 " + md(last.date) + " " + cardioText(last.cardio) : "첫 기록"}</div>`,
+      foot: `<button class="acc" style="flex:2" onclick="savePlanCardio(${i})">확인</button>` });
+}
+function savePlanCardio(i) {
+  const it = pe.items[i], km = parseFloat($("#pcKm").value), min = parseFloat($("#pcMin").value);
+  it.cardio = { km: isNaN(km) || km <= 0 ? null : Math.round(km * 100) / 100, min: isNaN(min) || min <= 0 ? null : Math.round(min) };
+  it.note = $("#piNote").value.trim();
+  closeModal(); renderPlanEdit();
+}
 function editPlanItem(i) {
+  if (isCardio(pe.items[i].ex)) return editPlanCardio(i);
   const it = pe.items[i], last = exHistory(it.ex)[0], info = exInfo(it.ex), step = curStep(it.ex);
   // 워밍업: 계획에 정해져 있으면 그 값, 아니면 지난번 워밍업, 그것도 없으면 꺼둠
   const w = it.warm || (it.warm === undefined && last && last.warm) || null;
@@ -961,6 +1010,10 @@ function holdRemovePlanItem(i) {
 function isSecEx(ex) { return /초$/.test(exInfo(ex).rep || ""); }
 function repUnit(text, ex) { text = String(text); return /초$/.test(text) ? text : text + (isSecEx(ex) ? "초" : "회"); }
 function planTargetText(it) {
+  if (isCardio(it.ex)) {
+    const c = it.cardio || {};
+    return [c.km ? fmt(c.km) + "km" : "", c.min ? fmt(c.min) + "분" : ""].filter(Boolean).join(" · ") || "거리·시간 자유";
+  }
   const warm = it.warm ? `W ${fmt(it.warm.kg)}×${it.warm.reps} · ` : "";
   const w = it.kg == null ? "" : fmt(it.kg) + "kg × ";
   return `${warm}${w}${repUnit(it.repsText || it.reps, it.ex)}${it.sets ? " · " + it.sets + "세트" : ""}`;
@@ -1040,7 +1093,7 @@ function openSettings() {
     ${""}
     <h3>오프라인</h3><div class="small" id="offl2">확인 중…</div>
     <div class="dim small">"준비 안 됨"이면 크롬 플래그(unsafely-treat-insecure-origin-as-secure)에 이 주소가 등록됐는지 확인 → 크롬 재시작 → 앱 다시 열기</div>
-    <div class="dim small mt">v31 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
+    <div class="dim small mt">v32 · ${location.hostname}</div>`, { head: `<div style="font-size:18px;font-weight:700">설정</div>` });
   offlineStatus().then(t => { const el = $("#offl2"); if (el) el.innerHTML = t; });
 }
 function wipe() { if (!confirm("모든 기록을 지울까요? 내보내기 먼저 하세요.")) return; localStorage.clear(); location.reload(); }
